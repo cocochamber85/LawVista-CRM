@@ -1,0 +1,6 @@
+{
+  "name": "LegalOps Pro",
+  "description": "Complete full-stack multi-tenant ERP platform purpose-built for law firms, featuring AI-powered document drafting, Case & Matter timelines, CRM pipelines, WhatsApp-style communications, Attendance/HR check-ins, and a custom Power-BI level reporting engine.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
