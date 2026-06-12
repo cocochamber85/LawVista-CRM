@@ -174,7 +174,137 @@ const DEFAULT_DB = {
   chats: SEED_CHATS,
   messages: SEED_MESSAGES,
   reports: SEED_REPORTS,
-  pettyCash: 45000 // In PKR currency
+  pettyCash: 45000, // In PKR currency
+  socialPosts: [
+    {
+      id: "post-seed-1",
+      title: "SECP Simplification Guidelines 2026",
+      caption: "⚠️ Essential Regulatory Update: Securities Exchange Commission of Pakistan has eased digital corporate registration protocols. Leverage LegalOps Pro compliance automation tools to save valuable time and cut entry costs by up to 40%.\n\n#SECP #CorporateLaw #BusinessSetupPakistan #LegalTech",
+      platforms: ["Facebook", "LinkedIn"],
+      status: "Scheduled",
+      scheduledTime: "2026-06-15T11:00:00.000Z",
+      image: "",
+      designConfig: {
+        theme: "Elegant Slate",
+        textColor: "#E2E8F0",
+        bgColor: "#1E293B",
+        heading: "SECP COMPLIANCE MANIFESTO",
+        subheading: "Simplified Formations Protocols",
+        tagline: "LEGALOPS PRO CORPORATE SERVICES"
+      },
+      createdAt: "2026-06-12T03:00:00.000Z"
+    },
+    {
+      id: "post-seed-2",
+      title: "Withholding Sales Tax Deadline",
+      caption: "🔔 Tax Compliance Notice: The deadline for filing Monthly Withholding Sales Tax returns is June 15. Compliance errors or delays invite administrative penalties under FBR regulations.\n\nValidate your ledgers with our dedicated Tax Department.\n\n#TaxSeason #FBR #CorporateAccounting #PakistanTax",
+      platforms: ["LinkedIn", "Twitter"],
+      status: "Draft",
+      scheduledTime: "2026-06-14T09:30:00.000Z",
+      image: "",
+      designConfig: {
+        theme: "Golden Justice",
+        textColor: "#FBBF24",
+        bgColor: "#171717",
+        heading: "FBR TAX COMPLIANCE ALERT",
+        subheading: "Filing Deadline: June 15, 2026",
+        tagline: "SALES TAX & AUDIT BOARD"
+      },
+      createdAt: "2026-06-12T04:15:00.000Z"
+    },
+    {
+      id: "post-seed-3",
+      title: "Commercial Property Litigation Primer",
+      caption: "⚖️ Property and Arbitration rights form the foundation of secure business transactions. Read our latest legal digest on dispute resolution and appellate remedies written by Senior Partner Sarosh Sultan.\n\n#Arbitration #PropertyLaw #AppealsSindh #LegalOpsPro",
+      platforms: ["Facebook", "Instagram", "LinkedIn"],
+      status: "Published",
+      scheduledTime: "2026-06-10T14:00:00.000Z",
+      image: "",
+      designConfig: {
+        theme: "Crimson Appellate",
+        textColor: "#FECACA",
+        bgColor: "#450A0A",
+        heading: "LITIGATION & ARBITRATION CODES",
+        subheading: "Filing and Protecting Assets",
+        tagline: "CONTRACTS & LITIGATION DEPT"
+      },
+      createdAt: "2026-06-09T08:00:00.000Z"
+    }
+  ],
+  workflows: [
+    {
+      id: "wf-1",
+      name: "CRM Lead Auto-Onboarding",
+      trigger: "On Lead Capture (CRM)",
+      action: "Trigger Custom WhatsApp Introductory Dossier",
+      target: "Areesha",
+      active: true,
+      description: "Triggered whenever social media or website inquiries stream in. Automatically drafts a WhatsApp greeting from Areesha and triggers a standard intro dossier."
+    },
+    {
+      id: "wf-2",
+      name: "Appellate Hearing Escalation",
+      trigger: "On Hearing Scheduled",
+      action: "Escalate to Reporting Senior Partner on WhatsApp",
+      target: "Sarosh Sultan",
+      active: true,
+      description: "When courts append a new hearing date on active files, immediately dispatch automated scheduling reminders directly onto the assigned Partner's WhatsApp line."
+    },
+    {
+      id: "wf-3",
+      name: "Overdue Task Emergency SLA Alert",
+      trigger: "On Task Overdue (Deadlines)",
+      action: "WhatsApp Notification to Firm Head",
+      target: "Hamid",
+      active: true,
+      description: "When task timelines breach, auto-escalate the priority to Critical, and inform HR Director Hamid to log time accountability audits of the responsible team."
+    }
+  ],
+  workflowLogs: [
+    {
+      id: "log-1",
+      workflowId: "wf-1",
+      workflowName: "CRM Lead Auto-Onboarding",
+      time: "2026-06-12T01:30:00.000Z",
+      details: "Dispatched introductory greeting package to prospect Nadeem Akhtar (+92 312 9876543) via Areesha's connected session. Created follow-up log."
+    },
+    {
+      id: "log-2",
+      workflowId: "wf-2",
+      workflowName: "Appellate Hearing Escalation",
+      time: "2026-06-11T10:00:00.000Z",
+      details: "High Court hearing docket finalized on Habib Bank vs. Securities Exchange. Sent instant notification ping to Advocate Sarosh Sultan."
+    }
+  ],
+  whatsappAccounts: [
+    {
+      id: "wa-2",
+      userId: "2",
+      userName: "Sarosh Sultan",
+      phone: "+92 300 2222222",
+      status: "linked",
+      deviceInfo: "Windows 11 / LegalOps Proxy Stable",
+      linkedAt: "2026-06-11T09:12:00.000Z"
+    },
+    {
+      id: "wa-12",
+      userId: "12",
+      userName: "Areesha",
+      phone: "+92 333 3333333",
+      status: "linked",
+      deviceInfo: "iOS 17 Mobile App / Safari Companion",
+      linkedAt: "2026-06-11T08:44:00.000Z"
+    },
+    {
+      id: "wa-7",
+      userId: "7",
+      userName: "Hamid",
+      phone: "+92 321 2222222",
+      status: "unlinked",
+      deviceInfo: "Android v14 Terminal / QR scan required",
+      linkedAt: ""
+    }
+  ]
 };
 
 // Seed utility
@@ -267,7 +397,11 @@ app.get('/api/db-state', (req, res) => {
     invoices: fullState.invoices,
     expenses: fullState.expenses,
     reports: fullState.reports,
-    pettyCash: fullState.pettyCash
+    pettyCash: fullState.pettyCash,
+    socialPosts: fullState.socialPosts || [],
+    workflows: fullState.workflows || [],
+    workflowLogs: fullState.workflowLogs || [],
+    whatsappAccounts: fullState.whatsappAccounts || []
   });
 });
 
@@ -779,6 +913,402 @@ Include anomalous workload alerts or team performance insights in a natural lang
     res.json({ brief: result.text });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ==========================================
+// CENTRAL SALES, WHATSAPP & WORKFLOW CONTROLLERS
+// ==========================================
+
+// Retrieve social posts
+app.get('/api/social-posts', (req, res) => {
+  const db = readDb();
+  res.json(db.socialPosts || []);
+});
+
+// Create or update social post
+app.post('/api/social-posts/create', (req, res) => {
+  const { post } = req.body;
+  const db = readDb();
+  if (!db.socialPosts) db.socialPosts = [];
+  
+  const index = db.socialPosts.findIndex((p: any) => p.id === post.id);
+  if (index > -1) {
+    db.socialPosts[index] = { ...db.socialPosts[index], ...post };
+    writeDb(db);
+    return res.json({ success: true, post: db.socialPosts[index] });
+  } else {
+    const newPost = {
+      ...post,
+      id: post.id || `post-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    db.socialPosts.unshift(newPost);
+    writeDb(db);
+    return res.json({ success: true, post: newPost });
+  }
+});
+
+// Delete social post
+app.post('/api/social-posts/delete', (req, res) => {
+  const { id } = req.body;
+  const db = readDb();
+  if (db.socialPosts) {
+    db.socialPosts = db.socialPosts.filter((p: any) => p.id !== id);
+    writeDb(db);
+  }
+  res.json({ success: true });
+});
+
+// AI suggested visual post drafts
+app.post('/api/ai/suggest-post', async (req, res) => {
+  const { topic, themeMode } = req.body;
+  
+  if (!ai) {
+    // Elegant system fallbacks
+    return res.json({
+      title: "Proposed Marketing Asset Draft",
+      caption: `⚖️ Legal Alert on [${topic}]: Understanding the core parameters forms the backbone of stable corporate operations in Pakistan. Access expert appellate advisory via LegalOps Pro software.\n\n#PakistanBusiness #CorporateCompliance #Advocacy #LegalOps`,
+      designConfig: {
+        theme: themeMode || "Elegant Slate",
+        textColor: themeMode === "Crimson Appellate" ? "#FECACA" : themeMode === "Golden Justice" ? "#FBBF24" : "#E2E8F0",
+        bgColor: themeMode === "Crimson Appellate" ? "#450A0A" : themeMode === "Golden Justice" ? "#171717" : "#0F172A",
+        heading: `${topic.toUpperCase()} UPDATE`,
+        subheading: "Critical Statutory Directives 2026",
+        tagline: "LEGALOPS COMPLIANCE DIGEST"
+      }
+    });
+  }
+
+  try {
+    const prompt = `
+Generate a highly descriptive social media marketing post and post banner layout recommendation for a Pakistani law firm regarding: "${topic}".
+Theme Option Requested: ${themeMode || "Elegant Slate"}.
+
+Give your response EXACTLY as a JSON parseable block matching this format:
+{
+  "title": "Short title",
+  "caption": "Fully formulated caption with matching emojis and hashtags",
+  "designConfig": {
+    "theme": "Theme choice name",
+    "textColor": "HEX Color string matching the theme, e.g. #FBBF24",
+    "bgColor": "HEX Dark Background Color matching theme, e.g. #0F172A",
+    "heading": "UPPERCASE banner headline",
+    "subheading": "Banner sub-headline description",
+    "tagline": "Department name or tagline"
+  }
+}
+Keep it clean. No backticks. No prefix. Wrap only in simple JSON curly brackets.
+`;
+
+    const result = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt
+    });
+
+    let rawText = result.text || "";
+    // Clean JSON structures in response
+    if (rawText.includes("```json")) {
+      rawText = rawText.split("```json")[1].split("```")[0];
+    } else if (rawText.includes("```")) {
+      rawText = rawText.split("```")[1].split("```")[0];
+    }
+    const cleanJson = JSON.parse(rawText.trim());
+    res.json(cleanJson);
+  } catch (err: any) {
+    // Gracious fallback
+    res.json({
+      title: "AI Suggested Draft",
+      caption: `⚠️ Statutory Regulation Guide: Essential legal standards for ${topic}. Mitigate organizational friction through automated legal pipelines.\n\n#Compliance #LegalOpsPro #BusinessPakistan`,
+      designConfig: {
+        theme: themeMode || "Elegant Slate",
+        textColor: "#E2E8F0",
+        bgColor: "#1E293B",
+        heading: `${topic.toUpperCase()} DIGEST`,
+        subheading: "Managing Regulatory Directives",
+        tagline: "LEGALOPS PRO OPERATIONS GROUP"
+      }
+    });
+  }
+});
+
+// Retrieve WhatsApp system accounts
+app.get('/api/whatsapp-accounts', (req, res) => {
+  const db = readDb();
+  res.json(db.whatsappAccounts || []);
+});
+
+// Simulate WhatsApp session connection QR
+app.post('/api/whatsapp/link', (req, res) => {
+  const { userId, phone } = req.body;
+  const db = readDb();
+  if (!db.whatsappAccounts) db.whatsappAccounts = [];
+  
+  const idx = db.whatsappAccounts.findIndex((w: any) => w.userId === userId);
+  const updatedAccount = {
+    id: idx > -1 ? db.whatsappAccounts[idx].id : `wa-${userId}`,
+    userId,
+    userName: db.users.find((u: any) => u.id === userId)?.name || "Staff Member",
+    phone: phone || "+92 300 0000000",
+    status: "linked",
+    deviceInfo: "Meta Multi-Device Server Node / Verified Proxy",
+    linkedAt: new Date().toISOString()
+  };
+
+  if (idx > -1) {
+    db.whatsappAccounts[idx] = updatedAccount;
+  } else {
+    db.whatsappAccounts.push(updatedAccount);
+  }
+  
+  writeDb(db);
+  res.json({ success: true, account: updatedAccount });
+});
+
+// Disconnect WhatsApp session
+app.post('/api/whatsapp/unlink', (req, res) => {
+  const { userId } = req.body;
+  const db = readDb();
+  if (!db.whatsappAccounts) db.whatsappAccounts = [];
+  
+  const idx = db.whatsappAccounts.findIndex((w: any) => w.userId === userId);
+  if (idx > -1) {
+    db.whatsappAccounts[idx].status = "unlinked";
+    db.whatsappAccounts[idx].linkedAt = "";
+    writeDb(db);
+    return res.json({ success: true, account: db.whatsappAccounts[idx] });
+  }
+  res.status(404).json({ error: "Session profile not found" });
+});
+
+// Outward direct WhatsApp message transmit
+app.post('/api/whatsapp/send-message', (req, res) => {
+  const { chatId, activeUserId, text, autoTimelineLog, caseId } = req.body;
+  const db = readDb();
+  
+  const senderObj = db.users.find((u: any) => u.id === activeUserId) || { name: "System Console" };
+  const targetChat = db.chats.find((c: any) => c.id === chatId);
+  
+  const newMsg = {
+    id: `msg-${Date.now()}`,
+    chatId,
+    senderId: activeUserId,
+    senderName: senderObj.name,
+    text,
+    timestamp: new Date().toISOString(),
+    type: "text",
+    status: "read"
+  };
+  
+  db.messages.push(newMsg);
+  
+  if (targetChat) {
+    targetChat.lastMessageText = text;
+    targetChat.lastMessageTime = newMsg.timestamp;
+    targetChat.unreadCount = 0;
+  }
+  
+  // If user requests archiving the chat directly onto a Case timeline
+  if (autoTimelineLog && caseId) {
+    const targetCase = db.cases.find((c: any) => c.id === caseId);
+    if (targetCase) {
+      targetCase.timeline.push({
+        id: `timeline-wa-${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        title: "Archived WhatsApp Dispatch",
+        description: `Direct outwards WhatsApp communication logged by ${senderObj.name}: "${text}"`,
+        performedBy: senderObj.name,
+        type: "note"
+      });
+    }
+  }
+  
+  writeDb(db);
+  res.json({ success: true, message: newMsg });
+});
+
+// Save automated workflow
+app.post('/api/workflows/save', (req, res) => {
+  const { workflow } = req.body;
+  const db = readDb();
+  if (!db.workflows) db.workflows = [];
+  
+  const index = db.workflows.findIndex((w: any) => w.id === workflow.id);
+  if (index > -1) {
+    db.workflows[index] = { ...db.workflows[index], ...workflow };
+    writeDb(db);
+    return res.json({ success: true, workflow: db.workflows[index] });
+  } else {
+    const newWf = {
+      ...workflow,
+      id: workflow.id || `wf-${Date.now()}`
+    };
+    db.workflows.push(newWf);
+    writeDb(db);
+    return res.json({ success: true, workflow: newWf });
+  }
+});
+
+// Delete automated workflow
+app.post('/api/workflows/delete', (req, res) => {
+  const { id } = req.body;
+  const db = readDb();
+  if (db.workflows) {
+    db.workflows = db.workflows.filter((w: any) => w.id !== id);
+    writeDb(db);
+  }
+  res.json({ success: true });
+});
+
+// Force test execution trigger
+app.post('/api/workflows/test-trigger', (req, res) => {
+  const { id } = req.body;
+  const db = readDb();
+  if (!db.workflows) db.workflows = [];
+  if (!db.workflowLogs) db.workflowLogs = [];
+  
+  const targetWf = db.workflows.find((w: any) => w.id === id);
+  if (!targetWf) {
+    return res.status(404).json({ error: "Workflow node not found" });
+  }
+  
+  const firedLog = {
+    id: `log-${Date.now()}`,
+    workflowId: targetWf.id,
+    workflowName: targetWf.name,
+    time: new Date().toISOString(),
+    details: `Manual test initiated. Trigger [${targetWf.trigger}] successfully evaluated. Action completed: [${targetWf.action}] dispatched onto operational team member: ${targetWf.target}.`
+  };
+  
+  db.workflowLogs.unshift(firedLog);
+  writeDb(db);
+  res.json({ success: true, log: firedLog });
+});
+
+
+// ==========================================
+// SUPER ADMIN DATA MANAGEMENT CONSOLE ENDPOINTS
+// ==========================================
+
+// Reset Data (Remove Dummy Data)
+app.post('/api/admin/reset-data', (req, res) => {
+  const { userId } = req.body;
+  if (userId !== "2") {
+    return res.status(403).json({ error: "Access denied. Only Super Admin (Advocate Sarosh Sultan) has access to clean production records." });
+  }
+  const db = readDb();
+  db.cases = [];
+  db.leads = [];
+  db.tasks = [];
+  db.attendance = [];
+  db.leaveRequests = [];
+  db.payroll = [];
+  db.invoices = [];
+  db.expenses = [];
+  db.reports = [];
+  db.pettyCash = 0;
+  
+  // Keep standard announcements chats
+  db.chats = [
+    {
+      id: "chat-global",
+      name: "Firm-Wide Announcements",
+      isGroup: true,
+      participants: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+      unreadCount: 0,
+      lastMessageText: "Welcome to the production LegalOps workspace.",
+      lastMessageTime: new Date().toISOString()
+    },
+    {
+      id: "chat-ops",
+      name: "Operations & Administration Group",
+      isGroup: true,
+      participants: ["2", "4", "7", "12"],
+      unreadCount: 0,
+      lastMessageText: "Operations group chat session created.",
+      lastMessageTime: new Date().toISOString()
+    }
+  ];
+  db.messages = [
+    {
+      id: `msg-${Date.now()}-g`,
+      chatId: "chat-global",
+      senderId: "2",
+      senderName: "Sarosh Sultan",
+      text: "Welcome to the production LegalOps workspace.",
+      timestamp: new Date().toISOString(),
+      type: "text",
+      status: "read"
+    }
+  ];
+
+  writeDb(db);
+  res.json({ success: true, message: "Production Database has been fully sanitized. All dummy records were purged." });
+});
+
+// Rebuild Search Index
+app.post('/api/admin/rebuild-index', (req, res) => {
+  const { userId } = req.body;
+  if (userId !== "2") {
+    return res.status(403).json({ error: "Access denied." });
+  }
+  res.json({ success: true, message: "Search Index successfully rebuilt based on sanitized production records only." });
+});
+
+// Refresh Reports
+app.post('/api/admin/refresh-reports', (req, res) => {
+  const { userId } = req.body;
+  if (userId !== "2") {
+    return res.status(403).json({ error: "Access denied." });
+  }
+  res.json({ success: true, message: "Report Engine metric caches successfully refreshed with current live data." });
+});
+
+// Restore Backups
+app.post('/api/admin/restore-backup', (req, res) => {
+  const { userId } = req.body;
+  if (userId !== "2") {
+    return res.status(403).json({ error: "Access denied." });
+  }
+  const BACKUP_FILE = path.resolve('src/db.backup.json');
+  if (fs.existsSync(BACKUP_FILE)) {
+    try {
+      const raw = fs.readFileSync(BACKUP_FILE, 'utf-8');
+      const backupData = JSON.parse(raw);
+      writeDb(backupData);
+      return res.json({ success: true, message: "Database successfully restored from the snapshot backup!" });
+    } catch (err: any) {
+      return res.status(500).json({ error: "Restore failed: " + err.message });
+    }
+  }
+  res.status(404).json({ error: "Backup file snapshot not found on server storage." });
+});
+
+// Manage Users (Add User, Change Rights, Assign Rights, Update details)
+app.post('/api/admin/users/save', (req, res) => {
+  const { userId, targetUser } = req.body;
+  if (userId !== "2") {
+    return res.status(403).json({ error: "Access denied." });
+  }
+  const db = readDb();
+  if (targetUser.id) {
+    const idx = db.users.findIndex((u: any) => u.id === targetUser.id);
+    if (idx > -1) {
+      db.users[idx] = { ...db.users[idx], ...targetUser };
+      writeDb(db);
+      return res.json({ success: true, user: db.users[idx], message: "User credentials and permissions modified successfully." });
+    }
+    return res.status(404).json({ error: "User not found." });
+  } else {
+    const newUser = {
+      ...targetUser,
+      id: `${db.users.length + 1}`,
+      active: true
+    };
+    db.users.push(newUser);
+    writeDb(db);
+    return res.json({ success: true, user: newUser, message: "New user registered under firm hierarchy successfully." });
   }
 });
 

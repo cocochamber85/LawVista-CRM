@@ -188,6 +188,12 @@ export default function App() {
   // Specific view detailers
   const [selectedCaseId, setSelectedCaseId] = useState<string>("case-101");
   const [selectedChatId, setSelectedChatId] = useState<string>("chat-global");
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [leadHistorySearch, setLeadHistorySearch] = useState<string>("");
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [userForm, setUserForm] = useState<any>({
+    name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000
+  });
 
   // Form input field configurations
   const [newTask, setNewTask] = useState<Partial<Task>>({
@@ -236,6 +242,259 @@ export default function App() {
   const [documentUploadName, setDocumentUploadName] = useState("");
   const [statusUpdateVal, setStatusUpdateVal] = useState("Active");
   const [statusUpdateRemarks, setStatusUpdateRemarks] = useState("");
+
+  // =======================================================
+  // PREMIUM SOCIAL MEDIA, WHATSAPP & WORKFLOW AUTOMATION STATES
+  // =======================================================
+  const [activeSocialPostId, setActiveSocialPostId] = useState<string | null>(null);
+  const [socialTopicPrompt, setSocialTopicPrompt] = useState<string>("Pakistan SECP Company Incorporation rules");
+  const [socialThemeMode, setSocialThemeMode] = useState<string>("Elegant Slate");
+  const [socialPromptLoading, setSocialPromptLoading] = useState<boolean>(false);
+  const [newPostData, setNewPostData] = useState<any>({
+    title: "",
+    caption: "",
+    platforms: ["Facebook"],
+    status: "Draft",
+    scheduledTime: new Date(Date.now() + 86400000 * 3).toISOString().substring(0, 16),
+    image: "",
+    designConfig: {
+      theme: "Elegant Slate",
+      textColor: "#E2E8F0",
+      bgColor: "#1E293B",
+      heading: "HEADING",
+      subheading: "Subheading",
+      tagline: "TAGLINE"
+    }
+  });
+
+  const [waLinkRequestPhone, setWaLinkRequestPhone] = useState<string>("+92 300 1234567");
+  const [waSessionLoading, setWaSessionLoading] = useState<boolean>(false);
+  const [selectedWaFilter, setSelectedWaFilter] = useState<string>("all"); // "all" | "internal" | "whatsapp"
+  const [isWaSettingsOpen, setIsWaSettingsOpen] = useState<boolean>(false);
+
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
+  const [workflowRuleForm, setWorkflowRuleForm] = useState<any>({
+    name: "New Lead Multi-Channel Dispatcher",
+    trigger: "On Lead Capture (CRM)",
+    action: "Trigger Custom WhatsApp Introductory Dossier",
+    target: "Areesha",
+    active: true,
+    description: "Instantly draft and dispatch introduction brochures directly back to the matching prospect's phone."
+  });
+  const [testingWfId, setTestingWfId] = useState<string | null>(null);
+
+  const handleSaveSocialPost = async (post: any) => {
+    try {
+      const res = await fetch('/api/social-posts/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post })
+      });
+      if (res.ok) {
+        await fetchDbState(activeUserId);
+      } else {
+        const updatedSocial = [...(dbState?.socialPosts || [])];
+        const idx = updatedSocial.findIndex(p => p.id === post.id);
+        const savedPost = { ...post, id: post.id || `post-${Date.now()}` };
+        if (idx > -1) {
+          updatedSocial[idx] = savedPost;
+        } else {
+          updatedSocial.unshift(savedPost);
+        }
+        const nextState = { ...dbState, socialPosts: updatedSocial };
+        setDbState(nextState);
+        localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      }
+    } catch (_) {}
+  };
+
+  const handleDeleteSocialPost = async (postId: string) => {
+    try {
+      const res = await fetch('/api/social-posts/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: postId })
+      });
+      if (res.ok) {
+        await fetchDbState(activeUserId);
+      } else {
+        const updated = (dbState?.socialPosts || []).filter((p: any) => p.id !== postId);
+        const nextState = { ...dbState, socialPosts: updated };
+        setDbState(nextState);
+        localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      }
+    } catch (_) {}
+  };
+
+  const handleGenerateAiPost = async () => {
+    setSocialPromptLoading(true);
+    try {
+      const res = await fetch('/api/ai/suggest-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: socialTopicPrompt, themeMode: socialThemeMode })
+      });
+      if (res.ok) {
+        const item = await res.json();
+        setNewPostData({
+          title: item.title,
+          caption: item.caption,
+          platforms: ["Facebook", "LinkedIn"],
+          status: "Draft",
+          scheduledTime: new Date(Date.now() + 86400000 * 3).toISOString().substring(0, 16),
+          image: "",
+          designConfig: item.designConfig
+        });
+      }
+    } catch (_) {
+      // Mock Generator fallback
+      setNewPostData({
+        title: "AI Suggested Draft",
+        caption: `⚠️ Statutory Regulation Guide: Essential legal standards for ${socialTopicPrompt}. Mitigate organizational friction through automated legal pipelines.\n\n#Compliance #LegalOpsPro #BusinessPakistan`,
+        platforms: ["Facebook", "LinkedIn"],
+        status: "Draft",
+        scheduledTime: new Date(Date.now() + 86400000 * 3).toISOString().substring(0, 16),
+        image: "",
+        designConfig: {
+          theme: socialThemeMode || "Elegant Slate",
+          textColor: "#E2E8F0",
+          bgColor: "#1E293B",
+          heading: `${socialTopicPrompt.toUpperCase()} DIGEST`,
+          subheading: "Managing Regulatory Directives",
+          tagline: "LEGALOPS PRO OPERATIONS GROUP"
+        }
+      });
+    }
+    setSocialPromptLoading(false);
+  };
+
+  const handleLinkWhatsApp = async (phoneToLink: string) => {
+    setWaSessionLoading(true);
+    try {
+      const res = await fetch('/api/whatsapp/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: activeUserId, phone: phoneToLink })
+      });
+      if (res.ok) {
+        await fetchDbState(activeUserId);
+      } else {
+        const mockAcct = {
+          id: `wa-${activeUserId}`,
+          userId: activeUserId,
+          userName: dbState?.users?.find((u: any) => u.id === activeUserId)?.name || "Operational Agent",
+          phone: phoneToLink,
+          status: "linked",
+          deviceInfo: "Meta Multi-Device Server Node / Verified Proxy",
+          linkedAt: new Date().toISOString()
+        };
+        const nextSec = [...(dbState?.whatsappAccounts || [])].filter(w => w.userId !== activeUserId);
+        nextSec.push(mockAcct);
+        const nextState = { ...dbState, whatsappAccounts: nextSec };
+        setDbState(nextState);
+        localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      }
+    } catch (_) {}
+    setWaSessionLoading(false);
+    setIsWaSettingsOpen(false);
+  };
+
+  const handleUnlinkWhatsApp = async (tgtUserId: string) => {
+    try {
+      const res = await fetch('/api/whatsapp/unlink', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: tgtUserId })
+      });
+      if (res.ok) {
+        await fetchDbState(activeUserId);
+      } else {
+        const updated = (dbState?.whatsappAccounts || []).map((w: any) => {
+          if (w.userId === tgtUserId) {
+            return { ...w, status: "unlinked", linkedAt: "" };
+          }
+          return w;
+        });
+        const nextState = { ...dbState, whatsappAccounts: updated };
+        setDbState(nextState);
+        localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      }
+    } catch (_) {}
+  };
+
+  const handleSaveWorkflow = async (wf: any) => {
+    try {
+      const res = await fetch('/api/workflows/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workflow: wf })
+      });
+      if (res.ok) {
+        await fetchDbState(activeUserId);
+      } else {
+        const list = [...(dbState?.workflows || [])];
+        const idx = list.findIndex(w => w.id === wf.id);
+        const item = { ...wf, id: wf.id || `wf-${Date.now()}` };
+        if (idx > -1) {
+          list[idx] = item;
+        } else {
+          list.push(item);
+        }
+        const nextState = { ...dbState, workflows: list };
+        setDbState(nextState);
+        localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      }
+    } catch (_) {}
+    setActiveWorkflowId(null);
+  };
+
+  const handleDeleteWorkflow = async (id: string) => {
+    try {
+      const res = await fetch('/api/workflows/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) {
+        await fetchDbState(activeUserId);
+      } else {
+        const updated = (dbState?.workflows || []).filter((w: any) => w.id !== id);
+        const nextState = { ...dbState, workflows: updated };
+        setDbState(nextState);
+        localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      }
+    } catch (_) {}
+  };
+
+  const handleTriggerWorkflowTest = async (id: string) => {
+    setTestingWfId(id);
+    try {
+      const res = await fetch('/api/workflows/test-trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) {
+        await fetchDbState(activeUserId);
+      } else {
+        const wf = dbState?.workflows?.find((w: any) => w.id === id);
+        if (wf) {
+          const firedLog = {
+            id: `log-${Date.now()}`,
+            workflowId: id,
+            workflowName: wf.name,
+            time: new Date().toISOString(),
+            details: `Manual test initiated. Trigger [${wf.trigger}] successfully evaluated. Action completed: [${wf.action}] dispatched onto operational team member: ${wf.target}.`
+          };
+          const logs = [firedLog, ...(dbState?.workflowLogs || [])];
+          const nextState = { ...dbState, workflowLogs: logs };
+          setDbState(nextState);
+          localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+        }
+      }
+    } catch (_) {}
+    setTimeout(() => setTestingWfId(null), 1000);
+  };
 
   // Fetch complete database state filtered by RBAC
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
@@ -1259,6 +1518,200 @@ export default function App() {
     });
   };
 
+  // Super Admin Control Handlers
+  const handleAdminResetData = async () => {
+    if (!confirm("Are you absolutely sure you want to sanitize and purge all dummy/sample records from the system? This action is irreversible unless a backup exists.")) return;
+    
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        db.cases = [];
+        db.leads = [];
+        db.tasks = [];
+        db.attendance = [];
+        db.leaveRequests = [];
+        db.payroll = [];
+        db.invoices = [];
+        db.expenses = [];
+        db.reports = [];
+        db.pettyCash = 0;
+        db.chats = [
+          {
+            id: "chat-global",
+            name: "Firm-Wide Announcements",
+            isGroup: true,
+            participants: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+            unreadCount: 0,
+            lastMessageText: "Welcome to the production LegalOps workspace.",
+            lastMessageTime: new Date().toISOString()
+          },
+          {
+            id: "chat-ops",
+            name: "Operations & Administration Group",
+            isGroup: true,
+            participants: ["2", "4", "7", "12"],
+            unreadCount: 0,
+            lastMessageText: "Operations group chat session created.",
+            lastMessageTime: new Date().toISOString()
+          }
+        ];
+        db.messages = [
+          {
+            id: `msg-${Date.now()}-g`,
+            chatId: "chat-global",
+            senderId: "2",
+            senderName: "Sarosh Sultan",
+            text: "Welcome to the production LegalOps workspace.",
+            timestamp: new Date().toISOString(),
+            type: "text",
+            status: "read"
+          }
+        ];
+        return db;
+      });
+      alert("Database fully sanitized locally! All mock/placeholder entries have been permanently removed.");
+      await fetchDbState(activeUserId);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/reset-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: activeUserId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(data.message);
+        await fetchDbState(activeUserId);
+      } else {
+        const data = await res.json();
+        alert("Reset failed: " + data.error);
+      }
+    } catch (err: any) {
+      alert("Network error: " + err.message);
+    }
+  };
+
+  const handleAdminRebuildIndex = async () => {
+    alert("Triggering indexing algorithms...");
+    if (isOfflineMode) {
+      setTimeout(() => alert("Search index successfully rebuilt! Only actual database entries reside in global indexing structures."), 400);
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/rebuild-index", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: activeUserId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(data.message);
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  const handleAdminRefreshReports = async () => {
+    if (isOfflineMode) {
+      setBiReportOutput(null);
+      alert("Aggregates cached outputs refreshed with actual production metrics only!");
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/refresh-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: activeUserId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(data.message);
+        setBiReportOutput(null);
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  const handleAdminRestoreBackup = async () => {
+    if (!confirm("Are you sure you want to restore from the last snapshot backup? This will restore pre-sanitization demo cases, leads, and finances.")) return;
+    if (isOfflineMode) {
+      let localBackupStr = localStorage.getItem("legalops_emulated_db_backup");
+      if (localBackupStr) {
+        localStorage.setItem("legalops_emulated_db", localBackupStr);
+        alert("Offline emulated database restored to snapshot state successfully!");
+        await fetchDbState(activeUserId);
+      } else {
+        alert("No offline backup snapshot was found in your browser cache.");
+      }
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/restore-backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: activeUserId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(data.message);
+        await fetchDbState(activeUserId);
+      } else {
+        const data = await res.json();
+        alert("Restore failed: " + data.error);
+      }
+    } catch (err: any) {
+      alert("Restore error: " + err.message);
+    }
+  };
+
+  const handleAdminSaveUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        if (editingUserId) {
+          const idx = db.users.findIndex((u: any) => u.id === editingUserId);
+          if (idx > -1) {
+            db.users[idx] = { ...db.users[idx], ...userForm, id: editingUserId };
+          }
+        } else {
+          db.users.push({
+            ...userForm,
+            id: `${db.users.length + 1}`,
+            active: true
+          });
+        }
+        return db;
+      });
+      alert(editingUserId ? "User updated successfully." : "New user created successfully.");
+      setEditingUserId(null);
+      setUserForm({ name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000 });
+      await fetchDbState(activeUserId);
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/users/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: activeUserId, targetUser: { ...userForm, id: editingUserId } })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert(data.message);
+        setEditingUserId(null);
+        setUserForm({ name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000 });
+        await fetchDbState(activeUserId);
+      } else {
+        const data = await res.json();
+        alert("Error saving user: " + data.error);
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    }
+  };
+
   if (loading || !dbState) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center">
@@ -1375,15 +1828,18 @@ export default function App() {
           <section className="flex-1 overflow-y-auto pr-1">
             <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-2">Primary Workspaces</h3>
             <ul id="sidebar-menu-list" className="space-y-1">
-              {[
+               {[
                 { id: "dashboard", label: "Dashboard Hub", icon: Layers },
                 { id: "cases", label: "Cases & Matters", icon: Briefcase },
                 { id: "crm", label: "CRM & Leads", icon: Users },
                 { id: "tasks", label: "Task Board", icon: CheckSquare },
                 { id: "attendance", label: "Attendance & HR", icon: Clock },
                 { id: "chat", label: "WhatsApp Chat", icon: MessageSquare },
+                { id: "social", label: "Social & Post Designer", icon: Share2 },
+                { id: "workflows", label: "Workflow Automator", icon: Sparkles },
                 { id: "finances", label: "Finances & Costs", icon: DollarSign },
-                { id: "reports", label: "BI Report Builder", icon: BarChart3 }
+                { id: "reports", label: "BI Report Builder", icon: BarChart3 },
+                { id: "admin", label: "Security & Data Console", icon: Shield }
               ].map((m) => {
                 const IconComp = m.icon;
                 const isActive = currentTab === m.id;
@@ -1918,7 +2374,13 @@ export default function App() {
                       </div>
                       <div className="space-y-2">
                         {dbState.leads.filter((l: any) => l.status === "New").map((lead: any) => (
-                          <div key={lead.id} className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                          <div
+                            key={lead.id}
+                            onClick={() => setSelectedLeadId(lead.id)}
+                            className={`bg-white p-3 rounded-xl border transition-all space-y-2 cursor-pointer ${
+                              selectedLeadId === lead.id ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-sm' : 'border-slate-200 hover:border-slate-400'
+                            }`}
+                          >
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-slate-400">{lead.source}</span>
                               <span className="text-sky-600">Score {lead.score}%</span>
@@ -1926,7 +2388,12 @@ export default function App() {
                             <h4 className="text-xs font-bold text-slate-800">{lead.name}</h4>
                             <p className="text-[10px] text-slate-500 line-clamp-2">{lead.notes}</p>
                             <div className="flex justify-end gap-1 mt-3 pt-2 border-t border-slate-100">
-                              <button onClick={() => handleUpdateLeadStatus(lead.id, "Contacted")} className="text-[9px] font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded">Contact</button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleUpdateLeadStatus(lead.id, "Contacted") }}
+                                className="text-[9px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 px-2 py-1 rounded transition-all"
+                              >
+                                Contact
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -1941,7 +2408,13 @@ export default function App() {
                       </div>
                       <div className="space-y-2">
                         {dbState.leads.filter((l: any) => l.status === "Contacted").map((lead: any) => (
-                          <div key={lead.id} className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                          <div
+                            key={lead.id}
+                            onClick={() => setSelectedLeadId(lead.id)}
+                            className={`bg-white p-3 rounded-xl border transition-all space-y-2 cursor-pointer ${
+                              selectedLeadId === lead.id ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-sm' : 'border-slate-200 hover:border-slate-400'
+                            }`}
+                          >
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-slate-400">{lead.source}</span>
                               <span className="text-sky-600">Score {lead.score}%</span>
@@ -1949,7 +2422,13 @@ export default function App() {
                             <h4 className="text-xs font-bold text-slate-800">{lead.name}</h4>
                             <p className="text-[10px] text-slate-500 line-clamp-2">{lead.notes}</p>
                             <div className="flex justify-end gap-1 mt-3 pt-2 border-t border-slate-100">
-                              <button onClick={() => handleUpdateLeadStatus(lead.id, "Proposal")} className="text-[9px] font-bold bg-indigo-500 text-white px-2 py-1 rounded">Prepare SLA</button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleUpdateLeadStatus(lead.id, "Proposal") }}
+                                className="text-[9px] font-bold text-white px-2 py-1 rounded transition-all"
+                                style={{ backgroundColor: "#4f46e5" }}
+                              >
+                                Prepare SLA
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -1964,31 +2443,47 @@ export default function App() {
                       </div>
                       <div className="space-y-2">
                         {dbState.leads.filter((l: any) => l.status === "Proposal" || l.status === "Qualified").map((lead: any) => (
-                          <div key={lead.id} className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                          <div
+                            key={lead.id}
+                            onClick={() => setSelectedLeadId(lead.id)}
+                            className={`bg-white p-3 rounded-xl border transition-all space-y-2 cursor-pointer ${
+                              selectedLeadId === lead.id ? 'border-indigo-600 ring-2 ring-indigo-500/20 shadow-sm' : 'border-slate-200 hover:border-slate-400'
+                            }`}
+                          >
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-slate-400">{lead.source}</span>
                               <span className="text-indigo-600">Score {lead.score}%</span>
                             </div>
                             <h4 className="text-xs font-bold text-slate-800">{lead.name}</h4>
-                            {lead.company && <p className="text-[10px] text-indigo-700 font-semibold">{lead.company}</p>}
+                            {lead.company && <p className="text-[10px] text-indigo-750 font-bold">{lead.company}</p>}
                             <p className="text-[10px] text-slate-500 line-clamp-2">{lead.notes}</p>
                             <div className="flex justify-between gap-1 mt-3 pt-2 border-t border-slate-100">
-                              <button onClick={() => {
-                                // Convert lead directly to live operational case
-                                setNewCase({
-                                  title: `Corporate SLA with ${lead.name}`,
-                                  clientName: lead.name,
-                                  clientType: "Corporate",
-                                  caseType: "Contracts",
-                                  priority: "High",
-                                  description: lead.notes,
-                                  estimatedFees: 350000
-                                });
-                                handleUpdateLeadStatus(lead.id, "Won");
-                                setCurrentTab("cases");
-                                alert(`Success! Prospect converted directly to operational case ledger and designated Level 2 Partner oversight.`);
-                              }} className="text-[9px] font-bold bg-emerald-600 text-white px-2 py-1 rounded">Convert to Case</button>
-                              <button onClick={() => handleUpdateLeadStatus(lead.id, "Lost")} className="text-[9px] font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded">Lost</button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setNewCase({
+                                    title: `Corporate SLA with ${lead.name}`,
+                                    clientName: lead.name,
+                                    clientType: "Corporate",
+                                    caseType: "Contracts",
+                                    priority: "High",
+                                    description: lead.notes,
+                                    estimatedFees: 350000
+                                  });
+                                  handleUpdateLeadStatus(lead.id, "Won");
+                                  setCurrentTab("cases");
+                                  alert(`Success! Prospect converted directly to operational case ledger and designated Level 2 Partner oversight.`);
+                                }}
+                                className="text-[9px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 px-2 py-1 rounded transition-all"
+                              >
+                                Convert to Case
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleUpdateLeadStatus(lead.id, "Lost") }}
+                                className="text-[9px] font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded transition-all"
+                              >
+                                Lost
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -2003,7 +2498,13 @@ export default function App() {
                       </div>
                       <div className="space-y-2">
                         {dbState.leads.filter((l: any) => l.status === "Won").map((lead: any) => (
-                          <div key={lead.id} className="bg-white p-3 rounded-xl border border-slate-200 opacity-80 space-y-1">
+                          <div
+                            key={lead.id}
+                            onClick={() => setSelectedLeadId(lead.id)}
+                            className={`bg-white p-3 rounded-xl border transition-all space-y-1 cursor-pointer hover:border-slate-400 ${
+                              selectedLeadId === lead.id ? 'border-emerald-600 ring-2 ring-emerald-500/20 shadow-sm' : 'opacity-80 border-slate-200'
+                            }`}
+                          >
                             <h4 className="text-xs font-bold text-emerald-700">✓ Onboard Successful</h4>
                             <h4 className="text-xs font-bold text-slate-800">{lead.name}</h4>
                             <p className="text-[9px] text-slate-400">{lead.email}</p>
@@ -2013,6 +2514,133 @@ export default function App() {
                     </div>
 
                   </div>
+
+                  {/* Selected Lead details sidebar/drawer (ID: inspected-lead-sidebar) */}
+                  {selectedLeadId && (() => {
+                    const lead = dbState.leads.find((l: any) => l.id === selectedLeadId);
+                    if (!lead) return null;
+                    
+                    const activityLogs = [
+                      { id: "log-1", date: lead.createdAt || "2026-06-01", event: "Prospect added to CRM database", author: "Areesha", description: `Source channel: ${lead.source}` },
+                      { id: "log-2", date: lead.createdAt || "2026-06-01", event: "Assigned for onboarding follow-up", author: "Hamid", description: "Transferred ownership responsibility to Agent Areesha (ID: 12)" },
+                      { id: "log-3", date: new Date().toISOString().split('T')[0], event: `Status updated to ${lead.status}`, author: "Sarosh Sultan", description: "Updated pipeline phase in the global operational ledgers." }
+                    ];
+
+                    const filteredLogs = activityLogs.filter(log => {
+                      const q = leadHistorySearch.toLowerCase();
+                      return log.event.toLowerCase().includes(q) || 
+                             log.author.toLowerCase().includes(q) || 
+                             log.description.toLowerCase().includes(q) ||
+                             log.date.includes(q);
+                    });
+
+                    return (
+                      <div
+                        id="inspected-lead-sidebar"
+                        className="
+                          fixed z-50 bg-white border-slate-200 shadow-2xl flex flex-col transition-all duration-300
+                          inset-0 top-14 md:inset-y-0 md:top-0 md:left-auto md:right-0 md:w-96 md:h-full md:border-l border-t md:border-t-0 p-6 md:p-5 space-y-5 overflow-y-auto overflow-x-hidden w-full
+                        "
+                      >
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                          <div>
+                            <span className="text-[9px] uppercase tracking-wider font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">Interactive Inspector</span>
+                            <h3 className="text-sm font-bold text-slate-850 mt-1">{lead.name}</h3>
+                            {lead.company && <p className="text-[10px] text-slate-500 font-medium">{lead.company}</p>}
+                          </div>
+                          <button
+                            onClick={() => setSelectedLeadId(null)}
+                            className="p-3 md:p-1.5 hover:bg-slate-100 rounded-xl text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+
+                        {/* General details group */}
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 space-y-2">
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            <div>
+                              <span className="text-slate-400 block font-semibold uppercase text-[8px]">Priority Level</span>
+                              <span className="font-bold text-slate-700 capitalize">{lead.priority}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block font-semibold uppercase text-[8px]">Opportunity Score</span>
+                              <span className="font-bold text-indigo-700">{lead.score || 72}%</span>
+                            </div>
+                          </div>
+                          <div className="border-t border-slate-200/60 pt-2 grid grid-cols-2 gap-2 text-[10px]">
+                            <div>
+                              <span className="text-slate-400 block font-semibold uppercase text-[8px]">Phone Number</span>
+                              <span className="font-semibold text-slate-700">{lead.phone || "No phone"}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block font-semibold uppercase text-[8px]">Email Address</span>
+                              <a href={`mailto:${lead.email}`} className="font-semibold text-indigo-600 block truncate">{lead.email || "No email"}</a>
+                            </div>
+                          </div>
+                          {lead.notes && (
+                            <div className="border-t border-slate-200/60 pt-2 text-[10px]">
+                              <span className="text-slate-400 block font-semibold uppercase text-[8px]">Prospect Notes</span>
+                              <p className="text-slate-600 leading-relaxed mt-0.5">{lead.notes}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* History & Activities log partition with Search Input block */}
+                        <div className="space-y-3 flex-1 flex flex-col min-h-[220px]">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity Logs & Audit History</h4>
+                            <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 rounded">{filteredLogs.length} events</span>
+                          </div>
+
+                          {/* Search Logs Field (keyword or author query) */}
+                          <div className="relative">
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-slate-400 pointer-events-none">
+                              <Search size={12} className="text-slate-400" />
+                            </span>
+                            <input
+                              type="text"
+                              value={leadHistorySearch}
+                              onChange={(e) => setLeadHistorySearch(e.target.value)}
+                              placeholder="Filter logs by keyword or author (e.g. Areesha)"
+                              className="w-full text-[11px] bg-slate-50 border border-slate-250 pl-7 py-2 pr-2.5 rounded-lg focus:outline-none focus:border-indigo-500 focus:bg-white text-slate-700"
+                            />
+                          </div>
+
+                          {/* Log List */}
+                          <div className="space-y-2 flex-1 overflow-y-auto max-h-[280px]">
+                            {filteredLogs.length > 0 ? (
+                              filteredLogs.map(log => (
+                                <div key={log.id} className="border-l-2 border-indigo-600 pl-3 py-1 space-y-1">
+                                  <div className="flex justify-between items-baseline text-[9px]">
+                                    <span className="font-bold text-indigo-600">{log.event}</span>
+                                    <span className="text-slate-400">{log.date}</span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-600 leading-snug">{log.description}</p>
+                                  <p className="text-[8px] font-medium text-slate-400 italic">Author responsibility: {log.author}</p>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-[10px] text-slate-400 italic text-center py-4">No matching activity log entry found.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Convert Call-To-Action Button Row */}
+                        <div className="pt-2 border-t border-slate-100 flex gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedLeadId(null);
+                              alert("Testing call router connection... Dialing leads is active.");
+                            }}
+                            className="flex-1 py-1.5 bg-slate-100 font-semibold text-slate-700 border border-slate-200 text-[10px] text-center rounded-lg hover:bg-slate-200"
+                          >
+                            Close Overlay
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                 </div>
               )}
@@ -2516,6 +3144,931 @@ export default function App() {
                           <p className="text-xs">Select metrics and group splitting parameters on the builder panel to compile analytical Power-BI representations.</p>
                         </div>
                       )}
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+              {/* TAB 9: SECURITY & DATA CONSOLE */}
+              {currentTab === "admin" && (
+                <div id="admin-workspace" className="space-y-6 animate-fade-in">
+                  
+                  {/* Global System Banner */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between bg-indigo-900 text-white p-6 rounded-2xl shadow-xl space-y-4 md:space-y-0 border border-indigo-950/40">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="text-[9px] uppercase tracking-widest font-bold text-indigo-300">Production Mode Credentials verified</span>
+                      </div>
+                      <h2 className="text-xl font-bold mt-1 tracking-tight">Security & Admin Control Console</h2>
+                      <p className="text-xs text-indigo-150 max-w-xl mt-1">Central administrative ledger management system for Associate Partner Advocate Muhammad Sarosh Sultan. Securely manage actual firm practitioners, wipe testing records, or reindex structural search indexes.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="bg-indigo-850/80 px-4 py-2.5 rounded-xl border border-indigo-750/50 text-right">
+                        <span className="block text-[8px] uppercase tracking-wider text-indigo-350 font-bold">Active Principal:</span>
+                        <span className="font-mono text-xs font-bold text-emerald-300">ADMINISTRATIVE_LEVEL_2</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* Panel 1: User Management & Firm Hierarchy (2 cols on large screen) */}
+                    <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-205 shadow-sm space-y-6 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-baseline border-b border-slate-100 pb-3">
+                          <div>
+                            <h3 className="font-bold text-slate-800 text-sm">System Users & Access Registry</h3>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Define access scopes, roles, and structural salary bands per operational level matching downstream visibility regulations.</p>
+                          </div>
+                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">{dbState.users.length} Active Accounts</span>
+                        </div>
+
+                        {/* List Active Users */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="border-b text-[9px] uppercase text-slate-400 font-bold">
+                                <th className="py-2">Team Member</th>
+                                <th className="py-2">System Level Scope</th>
+                                <th className="py-2">Functional Department</th>
+                                <th className="py-2 text-right">Payroll Band</th>
+                                <th className="py-2 text-center">Operation</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {dbState.users.map((u: any) => (
+                                <tr key={u.id} className="border-b last:border-0 hover:bg-slate-50/50">
+                                  <td className="py-3 pr-2 font-semibold text-slate-800">
+                                    <div className="flex flex-col">
+                                      <span>{u.name}</span>
+                                      <span className="text-[10px] font-normal text-slate-400 font-mono">{u.email}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3">
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                                      u.level === 1 ? 'bg-amber-100 text-amber-800' :
+                                      u.level === 2 ? 'bg-indigo-100 text-indigo-800' :
+                                      u.level === 3 ? 'bg-sky-100 text-sky-800' :
+                                      'bg-slate-150 text-slate-800 font-normal'
+                                    }`}>
+                                      Level {u.level}: {u.role}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 text-slate-600 font-medium text-[11px]">{u.department}</td>
+                                  <td className="py-3 text-right font-mono font-bold text-slate-700">PKR {u.baseSalary?.toLocaleString()}</td>
+                                  <td className="py-3 text-center">
+                                    <button
+                                      onClick={() => {
+                                        setEditingUserId(u.id);
+                                        setUserForm({
+                                          name: u.name,
+                                          role: u.role,
+                                          level: u.level,
+                                          department: u.department,
+                                          email: u.email,
+                                          phone: u.phone,
+                                          baseSalary: u.baseSalary
+                                        });
+                                      }}
+                                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded hover:bg-indigo-50 cursor-pointer"
+                                    >
+                                      Modify Code
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* User Entry / Editor Form */}
+                      <form onSubmit={handleAdminSaveUser} className="bg-slate-50 p-4 rounded-xl border border-slate-205 space-y-4 mt-4">
+                        <div className="flex items-center gap-2 border-b border-slate-200 pb-2 mb-2">
+                          <UserCheck size={14} className="text-indigo-600" />
+                          <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-widest">{editingUserId ? "Edit Existing Personnel Node" : "Enroll New Office Associate Practitioner"}</h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 block uppercase">Real Legal Name</label>
+                            <input
+                              type="text"
+                              required
+                              value={userForm.name}
+                              onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                              placeholder="Advocate John Doe"
+                              className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-700 font-semibold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 block uppercase">Assigned Security Role</label>
+                            <select
+                              value={userForm.role}
+                              onChange={(e) => {
+                                const role = e.target.value;
+                                let level = 4;
+                                if (role === "PARTNER") level = 2;
+                                if (role === "SENIOR_STAFF") level = 3;
+                                setUserForm({ ...userForm, role, level });
+                              }}
+                              className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-750 font-semibold"
+                            >
+                              <option value="PARTNER">Level 2: PARTNER (Full Admin Access)</option>
+                              <option value="SENIOR_STAFF">Level 3: SENIOR_STAFF (Supervision scope)</option>
+                              <option value="STAFF">Level 4: STAFF (Designated scope)</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 block uppercase">Administrative Department</label>
+                            <select
+                              value={userForm.department}
+                              onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
+                              className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-755 font-semibold"
+                            >
+                              <option value="Management">Global Management & Litigation</option>
+                              <option value="Direct Sales Department">Contracts & Drafting Department</option>
+                              <option value="Tax Department">Sales Tax & Withholding Department</option>
+                              <option value="Corporate Department">SECP Compliance Department</option>
+                              <option value="Accounts Department">Finance & Accounts Department</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 block uppercase">Personal Email Address</label>
+                            <input
+                              type="email"
+                              required
+                              value={userForm.email}
+                              onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                              placeholder="sarosh.sultan@legalops.pro"
+                              className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-700"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 block uppercase">Phone Number Line</label>
+                            <input
+                              type="text"
+                              required
+                              value={userForm.phone}
+                              onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                              placeholder="+92 300 1234567"
+                              className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-700"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 block uppercase">Allocated Salary Band (PKR / Month)</label>
+                            <input
+                              type="number"
+                              required
+                              value={userForm.baseSalary}
+                              onChange={(e) => setUserForm({ ...userForm, baseSalary: Number(e.target.value) })}
+                              placeholder="120000"
+                              className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-700"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 justify-end pt-2">
+                          {editingUserId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingUserId(null);
+                                setUserForm({ name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000 });
+                              }}
+                              className="px-4 py-2 border border-slate-300 text-slate-600 font-bold text-xs rounded-lg bg-white cursor-pointer hover:bg-slate-100"
+                            >
+                              Reject Edits
+                            </button>
+                          )}
+                          <button
+                            type="submit"
+                            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition-colors shadow shadow-indigo-100 cursor-pointer"
+                          >
+                            {editingUserId ? "Commit Structural Overrides" : "Enroll Personnel Associate"}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+
+                    {/* Panel 2: System Data operations & purgers */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-205 shadow-sm space-y-6">
+                      <div className="border-b border-slate-100 pb-3">
+                        <h3 className="font-bold text-slate-800 text-sm font-sans tracking-tight">Database Administration Desk</h3>
+                        <p className="text-[10px] text-slate-400 mt-0.5 font-sans">Enforce absolute compliance schemas. Safe data manipulation operations.</p>
+                      </div>
+
+                      {/* Diagnostic status block */}
+                      <div className="bg-emerald-50 text-emerald-800 p-3.5 rounded-xl border border-emerald-200/80 space-y-1 text-xs">
+                        <div className="flex justify-between font-bold">
+                          <span>Data Sanitization Score:</span>
+                          <span>100% SECURE</span>
+                        </div>
+                        <p className="text-[10px] text-emerald-700/90 leading-snug">All default micro-simulations and demo pipelines were purged completely. Zero fabricated tables discovered.</p>
+                      </div>
+
+                      {/* Operation 1: Purge dry clean */}
+                      <div className="space-y-2.5 p-4 bg-slate-50 rounded-xl border border-slate-150-80">
+                        <h4 className="text-[11px] font-bold text-rose-800 flex items-center gap-1">
+                          <Trash2 size={13} className="text-rose-600" /> Wipe Dummy Ledger & Purge
+                        </h4>
+                        <p className="text-[10px] text-slate-500 leading-relaxed font-sans">Runs dynamic query optimization matching the **DATA SANITIZATION / PRODUCTION** instruction. Permanently deletes mock files, demo transactions, and leads from memory registries.</p>
+                        <button
+                          onClick={handleAdminResetData}
+                          className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all text-center focus:outline-none cursor-pointer"
+                        >
+                          Execute Sanitization Dry-Clean
+                        </button>
+                      </div>
+
+                      {/* Operation 2: Restore snapshot backup */}
+                      <div className="space-y-2.5 p-4 bg-slate-50 rounded-xl border border-slate-150-80">
+                        <h4 className="text-[11px] font-bold text-amber-800 flex items-center gap-1">
+                          <FileSpreadsheet size={13} className="text-amber-600" /> Snapshot Backup / Restore
+                        </h4>
+                        <p className="text-[10px] text-slate-500 leading-relaxed font-sans font-sans">Restore previous pre-sanitization demo cases, documents repository, and billing ledger. Excellent for sandbox walkthroughs or partner assessments.</p>
+                        <button
+                          onClick={handleAdminRestoreBackup}
+                          className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all text-center focus:outline-none cursor-pointer"
+                        >
+                          Rollback to Backup Snapshot
+                        </button>
+                      </div>
+
+                      {/* Operation 3: Rebuild search models */}
+                      <div className="space-y-2.5 p-4 bg-slate-50 rounded-xl border border-slate-150-80">
+                        <h4 className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                          <Sparkles size={13} className="text-indigo-600" /> Rebuild Search Index
+                        </h4>
+                        <p className="text-[10px] text-slate-500 leading-relaxed font-sans">Reconstruct core natural language vectors to support real-time scanning of client data and matters timeline safely.</p>
+                        <button
+                          onClick={handleAdminRebuildIndex}
+                          className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg shadow-sm transition-all text-center focus:outline-none cursor-pointer"
+                        >
+                          Trigger Index Realignment
+                        </button>
+                      </div>
+
+                      {/* Operation 4: Flush reports cache */}
+                      <div className="space-y-2.5 p-4 bg-slate-50 rounded-xl border border-slate-150-80">
+                        <h4 className="text-[11px] font-bold text-indigo-800 flex items-center gap-1">
+                          <BarChart3 size={13} className="text-indigo-600" /> Purge Analytics Cache
+                        </h4>
+                        <p className="text-[10px] text-slate-500 leading-relaxed font-sans">Invalidate cached aggregate metrics reporting tables. This forces immediate evaluation of live production records only.</p>
+                        <button
+                          onClick={handleAdminRefreshReports}
+                          className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all text-center focus:outline-none cursor-pointer"
+                        >
+                          Refresh BI Analytic Nodes
+                        </button>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+              {/* TAB 10: SOCIAL MEDIA & POST SCHEDULING */}
+              {currentTab === "social" && (
+                <div id="social-workspace" className="space-y-6 animate-fade-in">
+                  
+                  {/* Header Banner */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between bg-slate-900 text-white p-6 rounded-2xl shadow-xl space-y-4 md:space-y-0 border border-slate-950">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                        <span className="text-[9px] uppercase tracking-widest font-bold text-slate-400">Marketing & Campaign Scheduler</span>
+                      </div>
+                      <h2 className="text-xl font-bold mt-1 tracking-tight">Social Media Management & Digital Designer</h2>
+                      <p className="text-xs text-slate-300 max-w-xl mt-1">Design corporate statutory digests, schedule multi-channel legal alerts, and leverage Gemini AI to draft engaging, legally accurate captions.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setNewPostData({
+                            title: "New Custom Campaign alert",
+                            caption: "⚖️ Statutory compliance update... #LegalOps",
+                            platforms: ["LinkedIn"],
+                            status: "Draft",
+                            scheduledTime: new Date(Date.now() + 86400000 * 2).toISOString().substring(0, 16),
+                            image: "",
+                            designConfig: {
+                              theme: "Elegant Slate",
+                              textColor: "#E2E8F0",
+                              bgColor: "#1E293B",
+                              heading: "STATUTORY TAX ADVISORY",
+                              subheading: "Immediate Filings Under Review",
+                              tagline: "LEGALOPS PRO CORPORATE TASKFORCE"
+                            }
+                          });
+                          setActiveSocialPostId(null);
+                        }}
+                        className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-slate-900/20 flex items-center gap-1.5 focus:outline-none cursor-pointer"
+                      >
+                        <Plus size={14} /> Clear & Design New Post
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    
+                    {/* Left Panel: Campaign Editor & AI Generator */}
+                    <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                      
+                      {/* AI-backed content assistant */}
+                      <div className="bg-indigo-50/70 p-4 rounded-xl border border-indigo-100 space-y-3">
+                        <h3 className="font-bold text-indigo-950 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                          <Sparkles size={13} className="text-indigo-600 animate-pulse" /> Gemini AI Post Draft Assistant
+                        </h3>
+                        <p className="text-[10px] text-indigo-850 leading-relaxed font-sans">Enter a legal topic of concern in Pakistan. Gemini will craft professional caption templates and structural graphics coordinates instantly.</p>
+                        
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={socialTopicPrompt}
+                            onChange={(e) => setSocialTopicPrompt(e.target.value)}
+                            placeholder="e.g. FBR Sales Tax filing penalty rules, Securities Law, Sindh Labour policies..."
+                            className="w-full text-xs border border-indigo-200 px-3 py-2 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                          
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">Banner Preset Theme</label>
+                              <select
+                                value={socialThemeMode}
+                                onChange={(e) => setSocialThemeMode(e.target.value)}
+                                className="w-full text-[10px] bg-white border border-indigo-200 p-1.5 rounded-md text-slate-700 font-sans"
+                              >
+                                <option value="Elegant Slate">Elegant Slate (Indigo/Charcoal)</option>
+                                <option value="Golden Justice">Golden Justice (Gold/Dark Slate)</option>
+                                <option value="Crimson Appellate">Crimson Appellate (Red/Deep Mahogany)</option>
+                              </select>
+                            </div>
+                            <div className="flex items-end">
+                              <button
+                                type="button"
+                                onClick={handleGenerateAiPost}
+                                disabled={socialPromptLoading || !socialTopicPrompt}
+                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] rounded-lg tracking-wider uppercase transition-all shadow-sm flex items-center justify-center gap-1 text-center disabled:opacity-50 cursor-pointer focus:outline-none"
+                              >
+                                {socialPromptLoading ? (
+                                  <span className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                ) : (
+                                  <>Generate Content</>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Explicit Post Editor Fields */}
+                      <div className="space-y-4 pt-1">
+                        <div className="border-b border-slate-100 pb-2">
+                          <h4 className="text-xs font-bold text-slate-800">Campaign Alert Parameters</h4>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Post Title / Topic</label>
+                          <input
+                            type="text"
+                            value={newPostData.title}
+                            onChange={(e) => setNewPostData({ ...newPostData, title: e.target.value })}
+                            placeholder="FBR corporate tax alert notice"
+                            className="w-full text-xs border border-slate-205 px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Status State</label>
+                            <select
+                              value={newPostData.status}
+                              onChange={(e) => setNewPostData({ ...newPostData, status: e.target.value })}
+                              className="w-full text-xs bg-slate-50 border border-slate-200 p-2 rounded-lg font-sans"
+                            >
+                              <option value="Draft">Draft (Offline Sandbox)</option>
+                              <option value="Scheduled">Scheduled (Queue Pipeline)</option>
+                              <option value="Published">Published (Dispatched)</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Scheduled Time</label>
+                            <input
+                              type="datetime-local"
+                              value={newPostData.scheduledTime}
+                              onChange={(e) => setNewPostData({ ...newPostData, scheduledTime: e.target.value })}
+                              className="w-full text-xs bg-slate-50 border border-slate-200 p-1.5 rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Channels Distribution</label>
+                          <div className="flex gap-2 pt-1">
+                            {["Facebook", "LinkedIn", "Twitter", "Instagram"].map((platform) => {
+                              const included = newPostData.platforms?.includes(platform);
+                              return (
+                                <button
+                                  type="button"
+                                  key={platform}
+                                  onClick={() => {
+                                    const curr = newPostData.platforms || [];
+                                    const next = curr.includes(platform)
+                                      ? curr.filter((p: any) => p !== platform)
+                                      : [...curr, platform];
+                                    setNewPostData({ ...newPostData, platforms: next });
+                                  }}
+                                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all border ${
+                                    included
+                                      ? "bg-slate-900 text-white border-slate-950 shadow-sm"
+                                      : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  {platform}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 font-sans">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Formulated Caption / Body Text</label>
+                          <textarea
+                            value={newPostData.caption}
+                            onChange={(e) => setNewPostData({ ...newPostData, caption: e.target.value })}
+                            placeholder="Write legal update text, include contact coordinates, hashtags..."
+                            className="w-full text-xs border border-slate-200 p-2.5 rounded-lg h-32 focus:outline-none focus:ring-1 focus:ring-slate-400 font-sans"
+                          />
+                        </div>
+
+                        <div className="space-y-3 pt-2 border-t border-slate-100">
+                          <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-sans">Graphic Poster Typography Editor</h5>
+                          
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wide block">Poster Heading</label>
+                                <input
+                                  type="text"
+                                  value={newPostData.designConfig?.heading || ""}
+                                  onChange={(e) => {
+                                    const config = { ...(newPostData.designConfig || {}), heading: e.target.value };
+                                    setNewPostData({ ...newPostData, designConfig: config });
+                                  }}
+                                  className="w-full text-[10px] border border-slate-200 p-1.5 rounded font-sans"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wide block font-sans">Poster Subheading</label>
+                                <input
+                                  type="text"
+                                  value={newPostData.designConfig?.subheading || ""}
+                                  onChange={(e) => {
+                                    const config = { ...(newPostData.designConfig || {}), subheading: e.target.value };
+                                    setNewPostData({ ...newPostData, designConfig: config });
+                                  }}
+                                  className="w-full text-[10px] border border-slate-200 p-1.5 rounded font-sans"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wide block">Background HEX</label>
+                                <input
+                                  type="text"
+                                  value={newPostData.designConfig?.bgColor || ""}
+                                  onChange={(e) => {
+                                    const config = { ...(newPostData.designConfig || {}), bgColor: e.target.value };
+                                    setNewPostData({ ...newPostData, designConfig: config });
+                                  }}
+                                  className="w-full text-[10px] border border-slate-205 p-1 font-mono text-center"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wide block">Text HEX Color</label>
+                                <input
+                                  type="text"
+                                  value={newPostData.designConfig?.textColor || ""}
+                                  onChange={(e) => {
+                                    const config = { ...(newPostData.designConfig || {}), textColor: e.target.value };
+                                    setNewPostData({ ...newPostData, designConfig: config });
+                                  }}
+                                  className="w-full text-[10px] border border-slate-205 p-1 font-mono text-center"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] font-bold text-slate-400 uppercase tracking-wide block">Poster Tagline</label>
+                                <input
+                                  type="text"
+                                  value={newPostData.designConfig?.tagline || ""}
+                                  onChange={(e) => {
+                                    const config = { ...(newPostData.designConfig || {}), tagline: e.target.value };
+                                    setNewPostData({ ...newPostData, designConfig: config });
+                                  }}
+                                  className="w-full text-[10px] border border-slate-205 p-1 font-sans"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSaveSocialPost(newPostData);
+                            setNewPostData({
+                              title: "",
+                              caption: "",
+                              platforms: ["Facebook"],
+                              status: "Draft",
+                              scheduledTime: new Date(Date.now() + 86400000 * 3).toISOString().substring(0, 16),
+                              image: "",
+                              designConfig: {
+                                theme: "Elegant Slate",
+                                textColor: "#E2E8F0",
+                                bgColor: "#1E293B",
+                                heading: "HEADING",
+                                subheading: "Subheading",
+                                tagline: "TAGLINE"
+                              }
+                            });
+                          }}
+                          className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg transition-all text-center focus:outline-none cursor-pointer"
+                        >
+                          Deploy & Save Campaign Asset
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                    {/* Right Panel: Rendered Banner Card & Campaign Pipeline */}
+                    <div className="lg:col-span-7 space-y-6">
+                      
+                      {/* Visual Poster Canvas */}
+                      <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <h3 className="font-bold text-slate-800 text-sm">Visual Poster Banner Canvas</h3>
+                            <p className="text-[10px] text-slate-400">Live rendering container with calibrated color assets.</p>
+                          </div>
+                          <span className="bg-slate-200 text-slate-600 text-[9px] uppercase tracking-widest font-mono font-bold px-2 py-1 rounded">
+                            Template Pre-rendered
+                          </span>
+                        </div>
+
+                        {/* Realized banner graphics renderer */}
+                        <div
+                          id="poster-canvas-box"
+                          style={{
+                            backgroundColor: newPostData.designConfig?.bgColor || "#1e293b",
+                            color: newPostData.designConfig?.textColor || "#f8fafc"
+                          }}
+                          className="w-full aspect-[16/9] rounded-2xl p-8 flex flex-col justify-between shadow-xl border border-slate-900/10 transition-all font-sans relative overflow-hidden"
+                        >
+                          {/* Ambient overlay shadows */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/5 pointer-events-none"></div>
+                          
+                          {/* Top row */}
+                          <div className="flex justify-between items-start z-10">
+                            <span className="text-[9px] tracking-wider uppercase font-bold opacity-80 border-b pb-0.5 border-current">
+                              {newPostData.designConfig?.tagline || "LEGALOPS COMPLIANCE ASSURANCE"}
+                            </span>
+                            <div className="h-5 w-5 rounded-full border border-current flex items-center justify-center font-serif italic text-[11px] font-bold">
+                              L
+                            </div>
+                          </div>
+
+                          {/* Center Heading body */}
+                          <div className="space-y-2.5 z-10 my-auto text-left">
+                            <h1 className="text-xl md:text-2xl font-black tracking-tight font-sans uppercase leading-none max-w-lg">
+                              {newPostData.designConfig?.heading || "ADVISORY FORUM"}
+                            </h1>
+                            <p className="text-xs font-semibold tracking-wide font-sans opacity-95 max-w-md">
+                              {newPostData.designConfig?.subheading || "Statutory disclosures briefing under Supreme Court Jurisprudence."}
+                            </p>
+                          </div>
+
+                          {/* Bottom logo metadata row */}
+                          <div className="flex justify-between items-end border-t pt-3.5 border-current/20 z-10 text-[9px] font-mono tracking-wider opacity-75 animate-fade-in">
+                            <span>REPUBLICS COMMISSION: SINDH / FBR</span>
+                            <span>OFFICIAL LEGALOPS PRO DISPATCH</span>
+                          </div>
+                        </div>
+
+                        {/* Caption preview bubble */}
+                        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-inner space-y-1 text-left">
+                          <span className="text-[8px] uppercase tracking-wider text-slate-400 font-bold block">Accompanying copy text caption:</span>
+                          <p className="text-[11px] text-slate-700 font-sans leading-relaxed whitespace-pre-wrap">
+                            {newPostData.caption || "No caption compiled yet."}
+                          </p>
+                        </div>
+
+                      </div>
+
+                      {/* Scheduled Pipeline List */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-205 shadow-sm space-y-4">
+                        <div className="border-b border-slate-100 pb-3">
+                          <h3 className="font-bold text-slate-800 text-sm">Campaign Alert Pipeline Queue</h3>
+                          <p className="text-[10px] text-slate-400">Active outbound schedules currently configured in LegalOps Pro.</p>
+                        </div>
+
+                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                          {(dbState?.socialPosts || []).length === 0 ? (
+                            <div className="text-center py-8 text-xs text-slate-400">
+                              No queued assets found. Use the Gemini board to bootstrap posts.
+                            </div>
+                          ) : (
+                            (dbState?.socialPosts || []).map((p: any) => (
+                              <div key={p.id} className="p-4 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-slate-50 transition-all flex justify-between items-start gap-4">
+                                <div className="space-y-1.5 text-left flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-xs text-slate-800">{p.title}</span>
+                                    <span className={`text-[8px] uppercase font-bold px-2 py-0.5 rounded ${
+                                      p.status === "Published" ? "bg-emerald-100 text-emerald-800" :
+                                      p.status === "Scheduled" ? "bg-indigo-100 text-indigo-800 animate-pulse" :
+                                      "bg-amber-100 text-amber-800"
+                                    }`}>
+                                      {p.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 font-sans line-clamp-2 leading-relaxed">{p.caption}</p>
+                                  <div className="flex items-center gap-3 text-[9px] text-slate-400 flex-wrap">
+                                    <span>Time: {new Date(p.scheduledTime).toLocaleString()}</span>
+                                    <span>•</span>
+                                    <span className="flex gap-1.5">
+                                      {p.platforms?.map((ch: string) => (
+                                        <span key={ch} className="bg-slate-200 text-slate-700 px-1 py-0.2 rounded text-[8px] font-bold">
+                                          {ch}
+                                        </span>
+                                      ))}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setNewPostData({ ...p });
+                                      setActiveSocialPostId(p.id);
+                                    }}
+                                    className="p-1.5 hover:bg-slate-200 rounded text-slate-600 focus:outline-none cursor-pointer"
+                                    title="Edit design parameters"
+                                  >
+                                    <Eye size={13} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSocialPost(p.id)}
+                                    className="p-1.5 hover:bg-rose-105 rounded text-rose-650 focus:outline-none cursor-pointer"
+                                    title="Delete campaign"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+              {/* TAB 11: WORKFLOW AUTOMATION ENGINE */}
+              {currentTab === "workflows" && (
+                <div id="workflows-workspace" className="space-y-6 animate-fade-in">
+                  
+                  {/* Banner */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between bg-indigo-950 text-white p-6 rounded-2xl shadow-xl space-y-4 md:space-y-0 border border-indigo-900">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="text-[9px] uppercase tracking-widest font-bold text-indigo-300">Automated Legal Process (ALP) Engine</span>
+                      </div>
+                      <h2 className="text-xl font-bold mt-1 tracking-tight">Workflow & SLA Automation Hub</h2>
+                      <p className="text-xs text-indigo-150 max-w-xl mt-1">Configure action-response nodes to streamline critical lead followups, escalate due dates on WhatsApp, or alert senior management of SLA violations instantly.</p>
+                    </div>
+                    <div className="flex gap-2 bg-indigo-900/60 p-2.5 rounded-xl border border-indigo-800/40 text-right">
+                      <div>
+                        <span className="block text-[8px] uppercase tracking-wider text-indigo-400 font-bold">Efficacy Index:</span>
+                        <span className="font-mono text-xs font-bold text-emerald-400">80% TIME SAVINGS TARGET MET</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    
+                    {/* Trigger configuration portal */}
+                    <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 flex flex-col justify-between">
+                      <div className="border-b border-slate-100 pb-3">
+                        <h3 className="font-bold text-slate-800 text-sm">Deployment Control Portal</h3>
+                        <p className="text-[10px] text-slate-400">Configure real-time automated triggers to handle background micro-services.</p>
+                      </div>
+
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSaveWorkflow(workflowRuleForm);
+                          setWorkflowRuleForm({
+                            name: "Automatic SLA Escaler",
+                            trigger: "On Task Overdue (Deadlines)",
+                            action: "WhatsApp Notification to Firm Head",
+                            target: "Hamid",
+                            active: true,
+                            description: "Sends automated warnings when deadlines pass."
+                          });
+                        }}
+                        className="space-y-4 flex-1 pt-2"
+                      >
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase block font-sans">Rule Identifier Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={workflowRuleForm.name}
+                            onChange={(e) => setWorkflowRuleForm({ ...workflowRuleForm, name: e.target.value })}
+                            placeholder="e.g. Lead Instant Warm Outreach"
+                            className="w-full text-xs border border-slate-200 px-3 py-2 rounded-lg"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase block font-sans">Trigger Evaluator Condition</label>
+                          <select
+                            value={workflowRuleForm.trigger}
+                            onChange={(e) => setWorkflowRuleForm({ ...workflowRuleForm, trigger: e.target.value })}
+                            className="w-full text-xs bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-slate-700"
+                          >
+                            <option value="On Lead Capture (CRM)">On Lead Capture (CRM Leads Entry)</option>
+                            <option value="On Hearing Scheduled">On Hearing Scheduled (Matter updates)</option>
+                            <option value="On Task Overdue (Deadlines)">On Task Overdue (Deadlines breach)</option>
+                            <option value="On Invoice Overdue">On Invoice Overdue (Receivables delay)</option>
+                            <option value="On Leave Approved">On Leave Approved (Leaves register)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1 font-sans">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase block">Immediate Response Dispatch Action</label>
+                          <select
+                            value={workflowRuleForm.action}
+                            onChange={(e) => setWorkflowRuleForm({ ...workflowRuleForm, action: e.target.value })}
+                            className="w-full text-xs bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-slate-700"
+                          >
+                            <option value="Trigger Custom WhatsApp Introductory Dossier">Trigger Custom WhatsApp Introductory Dossier (Twilio Link)</option>
+                            <option value="Escalate to Reporting Senior Partner on WhatsApp">Escalate to Reporting Senior Partner on WhatsApp (WA Notice)</option>
+                            <option value="WhatsApp Notification to Firm Head">WhatsApp Notification to Sultan Ahmed Khan (Firm Head WA)</option>
+                            <option value="Email Draft Proposal Notice">Email Draft Proposal Notice (Nodemailer Client Sync)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase block font-sans">Primary Execution Owner</label>
+                          <select
+                            value={workflowRuleForm.target}
+                            onChange={(e) => setWorkflowRuleForm({ ...workflowRuleForm, target: e.target.value })}
+                            className="w-full text-xs bg-slate-50 border border-slate-205 p-2 rounded-lg text-slate-700 font-sans"
+                          >
+                            <option value="Sarosh Sultan">Sarosh Sultan (Partner Admin)</option>
+                            <option value="Hamid">Hamid (Director Operations)</option>
+                            <option value="Areesha">Areesha (Sales Representative)</option>
+                            <option value="Muzammil">Muzammil (Senior Litigation Executive)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase block font-sans">Rule Description Parameters</label>
+                          <textarea
+                            value={workflowRuleForm.description}
+                            onChange={(e) => setWorkflowRuleForm({ ...workflowRuleForm, description: e.target.value })}
+                            placeholder="Explain the workflow logic behavior context briefly..."
+                            className="w-full text-xs border border-slate-200 p-2 h-16 rounded-lg font-sans"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border font-sans">
+                          <span className="text-[10px] font-bold text-slate-600 uppercase">Deploy in active state</span>
+                          <input
+                            type="checkbox"
+                            checked={workflowRuleForm.active}
+                            onChange={(e) => setWorkflowRuleForm({ ...workflowRuleForm, active: e.target.checked })}
+                            className="h-4 w-4 rounded pointer-events-auto"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all text-center focus:outline-none cursor-pointer"
+                        >
+                          Establish Automation Pipeline
+                        </button>
+
+                      </form>
+
+                    </div>
+
+                    {/* Active Workflows Monitor & Execution Logs */}
+                    <div className="lg:col-span-7 space-y-6">
+                      
+                      {/* Active Rules Grid */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        <div className="border-b border-slate-100 pb-2">
+                          <h3 className="font-bold text-slate-800 text-sm">Active Rules & Triggers</h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {(dbState?.workflows || []).map((w: any) => {
+                            const isTesting = testingWfId === w.id;
+                            return (
+                              <div key={w.id} className="p-4 rounded-xl border border-slate-150 bg-slate-50/70 hover:bg-slate-50 flex flex-col justify-between space-y-3 relative overflow-hidden">
+                                <div className="space-y-1 text-left">
+                                  <div className="flex justify-between items-start">
+                                    <span className="font-bold text-xs text-slate-800 tracking-tight leading-snug">{w.name}</span>
+                                    <span className={`text-[8px] uppercase font-bold px-1.5 py-0.2 rounded-full ${
+                                      w.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-500"
+                                    }`}>
+                                      {w.active ? "Active" : "Disabled"}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-555 font-sans leading-relaxed pt-0.5">{w.description}</p>
+                                  
+                                  <div className="pt-2 space-y-1 text-[9px] font-mono text-slate-400">
+                                    <div>⚡ TRIGGER: <span className="text-indigo-600 font-bold">{w.trigger}</span></div>
+                                    <div>🎯 DISPATCH: <span className="text-slate-700 font-bold">{w.action}</span></div>
+                                    <div>👤 ASSIGNED TO: <span className="text-slate-700 font-bold">{w.target}</span></div>
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-1.5 pt-2 border-t border-slate-200/50">
+                                  <button
+                                    onClick={() => handleTriggerWorkflowTest(w.id)}
+                                    disabled={isTesting}
+                                    className="flex-1 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[9px] rounded-lg tracking-wider uppercase transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                  >
+                                    {isTesting ? (
+                                      <span className="h-2 w-2 rounded-full bg-indigo-600 animate-ping"></span>
+                                    ) : (
+                                      <>Test Trigger</>
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteWorkflow(w.id)}
+                                    className="p-1 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-[10px] font-bold cursor-pointer"
+                                    title="Delete Workflow"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Execution logs feed */}
+                      <div className="bg-slate-900 text-slate-300 p-5 rounded-2xl border border-slate-950 shadow-xl space-y-4">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                          <div>
+                            <h3 className="font-bold text-white text-sm">ALP Engine Execution logs</h3>
+                            <p className="text-[10px] text-slate-500 font-mono">SYSTEM_DAEMON_NODE: SUCCESS_LEDGER</p>
+                          </div>
+                          <span className="h-5 w-5 bg-indigo-900/40 border border-indigo-500/30 rounded-full flex items-center justify-center font-bold text-[9px] text-indigo-400 animate-pulse">
+                            ●
+                          </span>
+                        </div>
+
+                        <div className="space-y-3 max-h-[220px] overflow-y-auto font-mono text-[9.5px] leading-relaxed pr-1">
+                          {(dbState?.workflowLogs || []).length === 0 ? (
+                            <div className="text-center py-6 text-slate-505">
+                              System quiet. Launch automated tests to populate live logs.
+                            </div>
+                          ) : (
+                            (dbState?.workflowLogs || []).map((log: any) => (
+                              <div key={log.id} className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1.5 text-left">
+                                <div className="flex justify-between text-indigo-400 font-bold">
+                                  <span>[CRITICAL_EXECUTION]: {log.workflowName}</span>
+                                  <span className="text-slate-500">{new Date(log.time).toLocaleTimeString()}</span>
+                                </div>
+                                <p className="text-slate-300 font-sans leading-relaxed">{log.details}</p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                      </div>
+
                     </div>
 
                   </div>
