@@ -816,6 +816,7 @@ export default function App() {
       setDbState({
         roleSelf: localDb.users.find((u: any) => u.id === userId),
         allUsers: localDb.users,
+        users: localDb.users,
         cases: filtered.cases || [],
         leads: filtered.leads || [],
         tasks: filtered.tasks || [],
@@ -3315,7 +3316,7 @@ export default function App() {
                             <h3 className="font-bold text-slate-800 text-sm">System Users & Access Registry</h3>
                             <p className="text-[10px] text-slate-400 mt-0.5">Define access scopes, roles, and structural salary bands per operational level matching downstream visibility regulations.</p>
                           </div>
-                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">{dbState.users.length} Active Accounts</span>
+                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">{(dbState.allUsers || []).length} Active Accounts</span>
                         </div>
 
                         {/* List Active Users */}
@@ -3331,7 +3332,7 @@ export default function App() {
                               </tr>
                             </thead>
                             <tbody>
-                              {dbState.users.map((u: any) => (
+                              {(dbState.allUsers || []).map((u: any) => (
                                 <tr key={u.id} className="border-b last:border-0 hover:bg-slate-50/50">
                                   <td className="py-3 pr-2 font-semibold text-slate-800">
                                     <div className="flex flex-col">
