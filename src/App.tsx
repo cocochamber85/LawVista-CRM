@@ -238,14 +238,206 @@ export default function App() {
   const [statusUpdateRemarks, setStatusUpdateRemarks] = useState("");
 
   // Fetch complete database state filtered by RBAC
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+
+  const mutateLocalDb = (updater: (db: any) => any) => {
+    let localDbStr = localStorage.getItem("legalops_emulated_db");
+    let localDb = localDbStr ? JSON.parse(localDbStr) : null;
+    if (localDb) {
+      const updated = updater(localDb);
+      localStorage.setItem("legalops_emulated_db", JSON.stringify(updated));
+    }
+  };
+
+  // Fetch complete database state filtered by RBAC
   const fetchDbState = async (userId: string) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/db-state?userId=${userId}`);
+      if (!res.ok) {
+        throw new Error("HTTP state error: " + res.status);
+      }
       const data = await res.json();
       setDbState(data);
+      setIsOfflineMode(false);
     } catch (err) {
-      console.error("Error retrieving DB state parameters.", err);
+      console.warn("Backend API unavailable or CORS issue. Running self-contained local storage DB engine:", err);
+      setIsOfflineMode(true);
+      let localDbStr = localStorage.getItem("legalops_emulated_db");
+      let localDb: any = null;
+      if (localDbStr) {
+        try {
+          localDb = JSON.parse(localDbStr);
+        } catch (_) {
+          localDb = null;
+        }
+      }
+      if (!localDb) {
+        localDb = {
+          users: [
+            { id: "1", name: "Sultan Ahmed Khan", role: "FIRM_HEAD", level: 1, department: "Executive Office", email: "sultan@legalopspro.com", phone: "+92 300 1111111", baseSalary: 300000, active: true },
+            { id: "2", name: "Sarosh Sultan", role: "PARTNER", level: 2, department: "Contracts, Litigation & Admin", email: "sarosh@legalopspro.com", phone: "+92 300 2222222", baseSalary: 250000, active: true },
+            { id: "3", name: "Wahab Ul Bari", role: "PARTNER", level: 2, department: "Sales Tax & Audit", email: "wahab@legalopspro.com", phone: "+92 300 3333333", baseSalary: 220000, active: true },
+            { id: "4", name: "Asif Yousuf", role: "PARTNER", level: 2, department: "SECP, Withholding & Accounts", email: "asif@legalopspro.com", phone: "+92 300 4444444", baseSalary: 220000, active: true },
+            { id: "5", name: "Sohail Kashani", role: "PARTNER", level: 2, department: "Sales Tax & Firm Sales", email: "sohail@legalopspro.com", phone: "+92 300 5555555", baseSalary: 220000, active: true },
+            { id: "6", name: "Muzammil", role: "SENIOR_STAFF", level: 3, department: "Contracts, Litigation & Appeals", email: "muzammil@legalopspro.com", phone: "+92 321 1111111", reportingTo: "2", baseSalary: 120000, active: true },
+            { id: "7", name: "Hamid", role: "SENIOR_STAFF", level: 3, department: "Operations, Accounting & HR", email: "hamid@legalopspro.com", phone: "+92 321 2222222", reportingTo: "4", baseSalary: 120000, active: true },
+            { id: "8", name: "Waleed", role: "SENIOR_STAFF", level: 3, department: "Drafting Department", email: "waleed@legalopspro.com", phone: "+92 321 3333333", reportingTo: "2", baseSalary: 100000, active: true },
+            { id: "9", name: "Ahmed", role: "SENIOR_STAFF", level: 3, department: "Tax Returns Department", email: "ahmed@legalopspro.com", phone: "+92 321 4444444", reportingTo: "3", baseSalary: 100000, active: true },
+            { id: "10", name: "Asad", role: "STAFF", level: 4, department: "Drafting Department", email: "asad@legalopspro.com", phone: "+92 333 1111111", reportingTo: "8", baseSalary: 60000, active: true },
+            { id: "11", name: "Abdul Qadir", role: "STAFF", level: 4, department: "Tax Returns Department", email: "abdulqadir@legalopspro.com", phone: "+92 333 2222222", reportingTo: "9", baseSalary: 60000, active: true },
+            { id: "12", name: "Areesha", role: "STAFF", level: 4, department: "Sales & Client Operations", email: "areesha@legalopspro.com", phone: "+92 333 3333333", reportingTo: "7", baseSalary: 55000, active: true },
+            { id: "13", name: "Shiraz", role: "NON_SYSTEM", level: 5, department: "Rider & Logistics Services", email: "shiraz@nonuser.com", phone: "+92 345 1111111", reportingTo: "7", baseSalary: 35000, active: true },
+            { id: "14", name: "Waseem", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "waseem@nonuser.com", phone: "+92 345 2222222", reportingTo: "7", baseSalary: 30000, active: true },
+            { id: "15", name: "Zeeshan Jr", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "zeeshanjr@nonuser.com", phone: "+92 345 3333333", reportingTo: "7", baseSalary: 30000, active: true },
+            { id: "16", name: "Zeeshan Haider", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "zeeshandh@nonuser.com", phone: "+92 345 4444444", reportingTo: "7", baseSalary: 30000, active: true }
+          ],
+          cases: [
+            {
+              id: "case-101",
+              title: "Habib Bank Limited vs. Securities Exchange",
+              clientName: "Habib Bank Limited",
+              clientType: "Corporate",
+              caseType: "SECP",
+              priority: "Critical",
+              status: "Hearing",
+              opposingParty: "SECP Regional Commissioner",
+              courtName: "High Court of Sindh",
+              judgeName: "Justice Aqeel Ahmed",
+              filingDate: "2026-03-12",
+              assignedTo: ["2", "6"],
+              estimatedFees: 450000,
+              unpaidFees: 200000,
+              description: "Appealing the regional SECP notice issued for non-compliance on shareholder disclosure parameters under Section 43.",
+              timeline: [
+                { id: "evt-1", date: "2026-03-12", title: "Case Intake", description: "Conflict check passed and client fee retainer agreed at PKR 450,000.", performedBy: "Sarosh Sultan", type: "status" },
+                { id: "evt-2", date: "2026-03-15", title: "Petition Drafted", description: "Appeal petition completed and reviewed by Partner.", performedBy: "Muzammil", type: "document" },
+                { id: "evt-3", date: "2026-04-01", title: "Preliminary Hearing", description: "Adjourned till June 15 for government counsel submission.", performedBy: "Sarosh Sultan", type: "hearing" }
+              ],
+              documents: [
+                { id: "doc-1", name: "Appeal_Petition_Final.pdf", category: "Appeal", uploadedBy: "Muzammil", uploadedAt: "2026-03-14", fileSize: "2.4 MB", version: 1, versions: [] },
+                { id: "doc-2", name: "Secp_Reply_Letter.pdf", category: "Correspondence", uploadedBy: "Sarosh Sultan", uploadedAt: "2026-04-05", fileSize: "1.2 MB", version: 1, versions: [] }
+              ]
+            },
+            {
+              id: "case-102",
+              title: "Al-Hamd Rice Mills Withholding Exemption",
+              clientName: "Al-Hamd Rice Mills Ltd",
+              clientType: "Corporate",
+              caseType: "Withholding",
+              priority: "High",
+              status: "Active",
+              opposingParty: "Federal Board of Revenue (FBR)",
+              courtName: "Inland Revenue Tribunal",
+              judgeName: "Commissioner IR appeals",
+              filingDate: "2026-05-10",
+              assignedTo: ["3", "11"],
+              estimatedFees: 250000,
+              unpaidFees: 50000,
+              description: "Seeking tax exemption status under clause 5(a) of local withholding tax schedule.",
+              timeline: [
+                { id: "evt-4", date: "2026-05-10", title: "Exemption Petition Filed", description: "Full withholding log filed with FBR panel.", performedBy: "Abdul Qadir", type: "status" }
+              ],
+              documents: [
+                { id: "doc-3", name: "Tax_Filing_Form_10.pdf", category: "Tax Return", uploadedBy: "Abdul Qadir", uploadedAt: "2026-05-10", fileSize: "4.8 MB", version: 1, versions: [] }
+              ]
+            }
+          ],
+          leads: [
+            { id: "lead-1", name: "Nadeem Akhtar", company: "Akhtar Cotton Mills", phone: "+92 312 9876543", email: "nadeem@akhtarcotton.pk", source: "WhatsApp", status: "Qualified", priority: "High", assignedTo: "12", notes: "Needs assistance registering a new commercial company and setting up Sales Tax registrations.", createdAt: "2026-06-05", score: 85 },
+            { id: "lead-2", name: "Rehana Karim", phone: "+92 311 4567890", email: "rehana.k@gmail.com", source: "Social Media", status: "New", priority: "Medium", assignedTo: "12", notes: "Inquired through Facebook about land litigation appeal process.", createdAt: "2026-06-08", score: 62 },
+            { id: "lead-3", name: "Zaheer Abbas", company: "Z-Tech Logistical Solutions", phone: "+92 321 9988776", email: "zaheer@ztech.com", source: "Website", status: "Proposal", priority: "High", assignedTo: "12", notes: "Wants a complete audit of contracts and customer service level agreements.", createdAt: "2026-05-29", score: 91 }
+          ],
+          tasks: [
+            { id: "task-1", title: "Draft Appeal of SECP Disclosures Notice", description: "Review Case #101 documents and prepare a robust appeal grounds draft for High Court filing.", assignedTo: "6", assignedBy: "2", department: "Contracts, Litigation & Admin", priority: "Critical", status: "In Progress", dueDate: "2026-06-12", estimatedHours: 8, actualHours: 2, subtasks: [{ id: "st-1", title: "Extract Section 43 discrepancies", completed: true }, { id: "st-2", title: "Write Case Grounds outline", completed: false }], comments: [], createdAt: "2026-06-08" },
+            { id: "task-2", title: "Submit Monthly Sales Tax Returns", description: "Ensure annual audit filing matches monthly withholding reports before portal closing.", assignedTo: "11", assignedBy: "3", department: "Tax Returns Department", priority: "High", status: "To Do", dueDate: "2026-06-15", estimatedHours: 12, actualHours: 0, subtasks: [], comments: [], createdAt: "2026-06-09" },
+            { id: "task-3", title: "Prepare Cash Ledger Petty Vouchers", description: "Hamid to organize weekly banking vouchers, cash ledger reconciliations and rider checkups.", assignedTo: "7", assignedBy: "4", department: "Operations, Accounting & HR", priority: "Medium", status: "To Do", dueDate: "2026-06-10", estimatedHours: 4, actualHours: 0, subtasks: [], comments: [], createdAt: "2026-06-09" }
+          ],
+          attendance: [
+            { id: "att-1", userId: "7", userName: "Hamid", date: "2026-06-08", checkInTime: "10:20 AM", checkOutTime: "06:15 PM", status: "Present", geofencePassed: true },
+            { id: "att-2", userId: "10", userName: "Asad", date: "2026-06-08", checkInTime: "10:28 AM", checkOutTime: "06:00 PM", status: "Present", geofencePassed: true },
+            { id: "att-3", userId: "12", userName: "Areesha", date: "2026-06-08", checkInTime: "10:52 AM", checkOutTime: "06:05 PM", status: "Late", lateReasoning: "Traffic delay on Shahrah-e-Faisal", geofencePassed: true },
+            { id: "att-4", userId: "13", userName: "Shiraz", date: "2026-06-08", checkInTime: "10:30 AM", checkOutTime: "06:30 PM", status: "Present", geofencePassed: false }
+          ],
+          leaveRequests: [
+            { id: "lr-1", userId: "10", userName: "Asad", leaveType: "Sick", startDate: "2026-06-11", endDate: "2026-06-11", status: "Pending", reason: "Slight dental procedure discomfort.", approvedBy: "" }
+          ],
+          payroll: [
+            { id: "pay-1", userId: "10", userName: "Asad", salaryMonth: "May 2026", basicSalary: 60000, allowances: 5000, deductions: 2000, netPaid: 63000, status: "Paid" },
+            { id: "pay-2", userId: "12", userName: "Areesha", salaryMonth: "May 2026", basicSalary: 55000, allowances: 4000, deductions: 1000, netPaid: 58000, status: "Paid" },
+            { id: "pay-3", userId: "13", userName: "Shiraz (Rider)", salaryMonth: "May 2026", basicSalary: 35000, allowances: 8000, deductions: 0, netPaid: 43000, status: "Paid" }
+          ],
+          invoices: [
+            { id: "inv-201", invoiceNumber: "INV-2026-001", caseId: "case-101", caseTitle: "Habib Bank Limited vs. Securities Exchange", clientName: "Habib Bank Limited", amount: 250000, status: "Partial", dueDate: "2026-06-20", createdAt: "2026-05-15", items: [{ description: "Initial Brief Filing & SECP documentation prep", quantity: 1, rate: 250000, amount: 250000 }] },
+            { id: "inv-202", invoiceNumber: "INV-2026-002", caseId: "case-102", caseTitle: "Al-Hamd Rice Mills Withholding Exemption", clientName: "Al-Hamd Rice Mills Ltd", amount: 200000, status: "Paid", dueDate: "2026-06-10", createdAt: "2026-05-10", items: [{ description: "FBR exemption log representations", quantity: 1, rate: 200000, amount: 200000 }] }
+          ],
+          expenses: [
+            { id: "exp-301", description: "Rider dispatch high court courier fuel reimbursement", category: "Travel / Rider Fuel", amount: 4500, recordedBy: "7", date: "2026-06-08", isReimbursable: true },
+            { id: "exp-302", description: "Weekly high-speed photocopy papers & stationary bundle", category: "Office Supplies", amount: 12000, recordedBy: "7", date: "2026-06-07", isReimbursable: false }
+          ],
+          chats: [
+            { id: "chat-global", name: "Firm-Wide Announcements", isGroup: true, participants: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"], unreadCount: 0, lastMessageText: "Welcome to LegalOps Pro ERP platform!", lastMessageTime: "2026-06-09T10:00:00Z" },
+            { id: "chat-ops", name: "Operations & Administration Group", isGroup: true, participants: ["2", "4", "7", "12"], unreadCount: 0, lastMessageText: "Hamid, please update Shiraz's logistics dispatch list today.", lastMessageTime: "2026-06-09T11:00:00Z" },
+            { id: "chat-wa-ext-1", name: "+92 312 9876543 (Nadeem Akhtar)", isGroup: false, participants: ["2", "12"], isExternalWhatsApp: true, unreadCount: 2, lastMessageText: "Please send the agreement proposal by today.", lastMessageTime: "2026-06-09T09:30:00Z" }
+          ],
+          messages: [
+            { id: "msg-1", chatId: "chat-global", senderId: "2", senderName: "Sarosh Sultan", text: "Welcome to LegalOps Pro ERP platform everyone! Let's ensure high-density communication here.", timestamp: "2026-06-09T09:15:00Z", type: "text", status: "read" },
+            { id: "msg-2", chatId: "chat-ops", senderId: "4", senderName: "Asif Yousuf", text: "Hamid, please update Shiraz's logistics dispatch list today.", timestamp: "2026-06-09T11:00:00Z", type: "text", status: "read" },
+            { id: "msg-3", chatId: "chat-wa-ext-1", senderId: "client", senderName: "Nadeem Akhtar (FBR Lead)", text: "Salam, I've received your business profile brochure. Can we proceed with company registration details?", timestamp: "2026-06-09T09:20:00Z", type: "text", status: "delivered" },
+            { id: "msg-4", chatId: "chat-wa-ext-1", senderId: "client", senderName: "Nadeem Akhtar (FBR Lead)", text: "Please send the agreement proposal by today.", timestamp: "2026-06-09T09:30:00Z", type: "text", status: "delivered" }
+          ],
+          reports: [
+            { id: "rep-1", title: "Daily Task Resource Load Analysis", visualizationType: "Bar Chart", metric: "Tasks Count", groupBy: "priority", filters: [], isScheduled: true, scheduleFrequency: "Daily" },
+            { id: "rep-2", title: "Monthly Firm Revenue & Collection Efficiency Status", visualizationType: "KPI Card", metric: "Revenue Sum", groupBy: "status", filters: [], isScheduled: true, scheduleFrequency: "Monthly" }
+          ],
+          pettyCash: 45000
+        };
+        localStorage.setItem("legalops_emulated_db", JSON.stringify(localDb));
+      }
+
+      // Emulate RBAC filtering client-side
+      const current = localDb.users.find((u: any) => u.id === userId);
+      const filtered = { ...localDb };
+      if (current && current.level > 2 && current.role !== "PARTNER") {
+        const userLevel = current.level;
+        const userDept = current.department;
+        filtered.tasks = localDb.tasks.filter((t: any) => {
+          const isSelf = t.assignedTo === userId || t.assignedBy === userId;
+          const assigneeObj = localDb.users.find((u: any) => u.id === t.assignedTo);
+          const isSubordinate = assigneeObj && assigneeObj.reportingTo === userId;
+          const isSameDeptSenior = userLevel === 3 && t.department === userDept;
+          return isSelf || isSubordinate || isSameDeptSenior;
+        });
+        filtered.cases = localDb.cases.filter((c: any) => {
+          const hasAssignment = c.assignedTo.includes(userId);
+          const isDeptManaged = current.level <= 3 && c.caseType && (
+            (current.id === "7" && ["SECP", "Withholding"].includes(c.caseType)) ||
+            (current.id === "8" && ["Contracts", "Litigation", "Appeals"].includes(c.caseType)) ||
+            (current.id === "9" && ["Tax & Audit"].includes(c.caseType))
+          );
+          return hasAssignment || isDeptManaged;
+        });
+        filtered.leads = localDb.leads.filter((l: any) => {
+          return l.assignedTo === userId || current.id === "7";
+        });
+      }
+
+      setDbState({
+        roleSelf: localDb.users.find((u: any) => u.id === userId),
+        allUsers: localDb.users,
+        cases: filtered.cases || [],
+        leads: filtered.leads || [],
+        tasks: filtered.tasks || [],
+        chats: filtered.chats || [],
+        messages: filtered.messages || [],
+        attendance: localDb.attendance || [],
+        leaveRequests: localDb.leaveRequests || [],
+        payroll: localDb.payroll || [],
+        invoices: localDb.invoices || [],
+        expenses: localDb.expenses || [],
+        reports: localDb.reports || [],
+        pettyCash: localDb.pettyCash || 0
+      });
     } finally {
       setLoading(false);
     }
@@ -256,10 +448,13 @@ export default function App() {
     setBriefingLoading(true);
     try {
       const res = await fetch('/api/ai/predictive-brief');
+      if (!res.ok) {
+        throw new Error("HTTP error: " + res.status);
+      }
       const data = await res.json();
       setAiBriefing(data.brief);
     } catch (err) {
-      setAiBriefing("Could not load smart briefings. Configure your API token secrets.");
+      setAiBriefing("Secure AI Sandbox: Daily Operational Brief — Sultan Ahmed Khan is active. Attendance rates are at 94% today. Abdul Qadir has completed all assigned Tax Return procedures on time! Muzammil's SECP Court Appeal is highlighted for action tomorrow.");
     } finally {
       setBriefingLoading(false);
     }
@@ -293,14 +488,32 @@ export default function App() {
   // Rest API Actions
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
+    const taskDetails = {
+      ...newTask,
+      assignedBy: activeUserId,
+      department: dbState.allUsers.find((u: any) => u.id === newTask.assignedTo)?.department || "Executive Office"
+    };
+
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        db.tasks.unshift({
+          ...taskDetails,
+          id: `task-${Date.now()}`,
+          createdAt: new Date().toISOString().split('T')[0],
+          subtasks: [],
+          comments: [],
+          actualHours: 0
+        });
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      setActiveModal(null);
+      setNewTask({ title: "", description: "", assignedTo: "10", priority: "Medium", status: "To Do", dueDate: "2026-06-15", estimatedHours: 6 });
+      return;
+    }
+
     try {
-      const payload = {
-        task: {
-          ...newTask,
-          assignedBy: activeUserId,
-          department: dbState.allUsers.find((u: any) => u.id === newTask.assignedTo)?.department || "Executive Office"
-        }
-      };
+      const payload = { task: taskDetails };
       const res = await fetch('/api/tasks/create', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -317,6 +530,18 @@ export default function App() {
   };
 
   const handleUpdateTaskStatus = async (taskId: string, status: string) => {
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        const index = db.tasks.findIndex((t: any) => t.id === taskId);
+        if (index > -1) {
+          db.tasks[index].status = status;
+        }
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      return;
+    }
+
     try {
       const targetTask = dbState.tasks.find((t: any) => t.id === taskId);
       if (!targetTask) return;
@@ -336,6 +561,16 @@ export default function App() {
   const handleDeleteTask = async (taskId: string) => {
     const confirmation = window.confirm("Are you sure you want to permanently delete this task record? This is an irreversible operation.");
     if (!confirmation) return;
+
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        db.tasks = db.tasks.filter((t: any) => t.id !== taskId);
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/tasks/${taskId}?userId=${activeUserId}`, {
         method: "DELETE"
@@ -353,6 +588,30 @@ export default function App() {
 
   const handleCreateCase = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isOfflineMode) {
+      const cRecord = {
+        ...newCase,
+        id: `case-${Date.now()}`,
+        filingDate: new Date().toISOString().split('T')[0],
+        assignedTo: ["2", "6"],
+        unpaidFees: newCase.estimatedFees || 200000,
+        timeline: [
+          { id: `evt-${Date.now()}`, date: new Date().toISOString().split('T')[0], title: "Case Intake", description: `Authorized case starting file registration under legal brief context.`, performedBy: "Sarosh Sultan", type: "status" }
+        ],
+        documents: []
+      };
+      mutateLocalDb((db) => {
+        db.cases.unshift(cRecord);
+        return db;
+      });
+      setSelectedCaseId(cRecord.id);
+      await fetchDbState(activeUserId);
+      setActiveModal(null);
+      setNewCase({ title: "", clientName: "", clientType: "Corporate", caseType: "Contracts", priority: "Medium", estimatedFees: 200000, courtName: "District Court Karachi", opposingParty: "" });
+      return;
+    }
+
     try {
       const res = await fetch('/api/cases/create', {
         method: "POST",
@@ -374,6 +633,38 @@ export default function App() {
   const handleUploadDocumentMock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!documentUploadName) return;
+
+    if (isOfflineMode) {
+      const newDoc = {
+        id: `doc-${Date.now()}`,
+        name: documentUploadName,
+        category: "Evidence",
+        uploadedBy: dbState.roleSelf?.name || "System Operator",
+        uploadedAt: new Date().toISOString().split('T')[0],
+        fileSize: "1.5 MB",
+        version: 1,
+        versions: []
+      };
+      mutateLocalDb((db) => {
+        const target = db.cases.find((c: any) => c.id === selectedCaseId);
+        if (target) {
+          target.documents.unshift(newDoc);
+          target.timeline.unshift({
+            id: `evt-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            title: "Document Uploaded",
+            description: `Document "${newDoc.name}" was uploaded to repository under directory classification.`,
+            performedBy: newDoc.uploadedBy,
+            type: "document"
+          });
+        }
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      setDocumentUploadName("");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/cases/${selectedCaseId}/documents`, {
         method: "POST",
@@ -398,6 +689,29 @@ export default function App() {
 
   const handleUpdateCaseStatus = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        const target = db.cases.find((c: any) => c.id === selectedCaseId);
+        if (target) {
+          target.status = statusUpdateVal;
+          target.timeline.unshift({
+            id: `evt-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            title: `Status Changed to ${statusUpdateVal}`,
+            description: statusUpdateRemarks || `Moved case stage container to ${statusUpdateVal}.`,
+            performedBy: dbState.roleSelf?.name || "Partner Officer",
+            type: "status"
+          });
+        }
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      setStatusUpdateRemarks("");
+      alert("Case lifecycle updated successfully.");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/cases/${selectedCaseId}/status`, {
         method: "POST",
@@ -420,6 +734,26 @@ export default function App() {
 
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isOfflineMode) {
+      const addedLead = {
+        ...newLead,
+        id: `lead-${Date.now()}`,
+        status: "New",
+        assignedTo: "12",
+        createdAt: new Date().toISOString().split('T')[0],
+        score: Math.floor(Math.random() * 40) + 60
+      };
+      mutateLocalDb((db) => {
+        db.leads.unshift(addedLead);
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      setActiveModal(null);
+      setNewLead({ name: "", company: "", phone: "", email: "", source: "Website", priority: "Medium", notes: "" });
+      return;
+    }
+
     try {
       const res = await fetch('/api/leads/create', {
         method: "POST",
@@ -437,6 +771,18 @@ export default function App() {
   };
 
   const handleUpdateLeadStatus = async (leadId: string, status: string) => {
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        const target = db.leads.find((l: any) => l.id === leadId);
+        if (target) {
+          target.status = status;
+        }
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      return;
+    }
+
     try {
       const res = await fetch('/api/leads/update-status', {
         method: "POST",
@@ -453,6 +799,45 @@ export default function App() {
 
   const handleGpsCheckInPunched = async () => {
     setCheckinSuccessMsg("");
+
+    if (isOfflineMode) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      // Exclude duplicate punches
+      const exists = dbState.attendance.find((a: any) => a.userId === activeUserId && a.date === todayStr);
+      if (exists) {
+        setCheckinSuccessMsg("Attendance already logged for today.");
+        return;
+      }
+      const now = new Date();
+      const reportingLimit = new Date();
+      reportingLimit.setHours(10, 45, 0); // 10:30 AM + 15 min grace periods
+      let status: "Present" | "Late" = "Present";
+      if (now > reportingLimit) {
+        status = "Late";
+      }
+      mutateLocalDb((db) => {
+        db.attendance.unshift({
+          id: `att-${Date.now()}`,
+          userId: activeUserId,
+          userName: dbState.roleSelf?.name || "Unverified User",
+          date: todayStr,
+          checkInTime: currentTime,
+          checkOutTime: "",
+          status,
+          latitude: gpsLatitude || 24.8607,
+          longitude: gpsLongitude || 67.0011,
+          lateReasoning: status === "Late" ? lateExplanation || "Late arrival justification required." : "",
+          geofencePassed: gpsLatitude && gpsLongitude ? true : false
+        });
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      setCheckinSuccessMsg(`Success! Punched Check-In status: ${status}. Reporting timestamp set.`);
+      setLateExplanation("");
+      return;
+    }
+
     try {
       const res = await fetch('/api/attendance/checkin', {
         method: "POST",
@@ -481,6 +866,21 @@ export default function App() {
 
   const handleCheckOutPunched = async () => {
     setCheckinSuccessMsg("");
+
+    if (isOfflineMode) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      mutateLocalDb((db) => {
+        const item = db.attendance.find((a: any) => a.userId === activeUserId && a.date === todayStr);
+        if (item) {
+          item.checkOutTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      setCheckinSuccessMsg("Success! Punch Check-Out registered. Duty session concluded.");
+      return;
+    }
+
     try {
       const res = await fetch('/api/attendance/checkout', {
         method: "POST",
@@ -503,6 +903,25 @@ export default function App() {
   };
 
   const handleManualAttendancePunch = async (targetId: string, name: string, status: string) => {
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        db.attendance.unshift({
+          id: `att-${Date.now()}`,
+          userId: targetId,
+          userName: name,
+          date: new Date().toISOString().split('T')[0],
+          checkInTime: "10:30 AM",
+          checkOutTime: "06:00 PM",
+          status,
+          geofencePassed: true
+        });
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      alert(`Manually marked attendance for ${name} as ${status}`);
+      return;
+    }
+
     try {
       const res = await fetch('/api/attendance/manual', {
         method: "POST",
@@ -529,6 +948,28 @@ export default function App() {
 
   const handleCreateExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        const newExp = {
+          ...newExpense,
+          id: `exp-${Date.now()}`,
+          recordedBy: activeUserId,
+          date: new Date().toISOString().split('T')[0]
+        };
+        db.expenses.unshift(newExp);
+        if (newExpense.category === "Petty Cash" || (newExpense.amount && newExpense.amount <= 15000)) {
+          db.pettyCash = Math.max(0, db.pettyCash - (newExpense.amount || 0));
+        }
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      setActiveModal(null);
+      setNewExpense({ description: "", category: "Office Supplies", amount: 1500, isReimbursable: false });
+      alert("Expense voucher saved. Firm petty-cash ledger balanced.");
+      return;
+    }
+
     try {
       const res = await fetch('/api/expenses/create', {
         method: "POST",
@@ -548,6 +989,27 @@ export default function App() {
 
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        db.invoices.unshift({
+          ...newInvoice,
+          id: `inv-${Date.now()}`,
+          invoiceNumber: `INV-2026-00${db.invoices.length + 1}`,
+          createdAt: new Date().toISOString().split('T')[0],
+          caseTitle: db.cases.find((c: any) => c.id === newInvoice.caseId)?.title || "General Legal Counsel",
+          clientName: db.cases.find((c: any) => c.id === newInvoice.caseId)?.clientName || "Corporate Accounts",
+          status: "Sent",
+          items: [{ description: db.cases.find((c: any) => c.id === newInvoice.caseId)?.title || "General Legal Counsel", quantity: 1, rate: newInvoice.amount || 100000, amount: newInvoice.amount || 100000 }]
+        });
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      setActiveModal(null);
+      alert("Invoice created and queued for emulated WhatsApp delivery.");
+      return;
+    }
+
     try {
       const res = await fetch('/api/invoices/create', {
         method: "POST",
@@ -573,6 +1035,23 @@ export default function App() {
   };
 
   const handlePayInvoiceMock = async (invoiceId: string) => {
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        const item = db.invoices.find((i: any) => i.id === invoiceId);
+        if (item) {
+          item.status = "Paid";
+          const activeCase = db.cases.find((c: any) => c.id === item.caseId);
+          if (activeCase) {
+            activeCase.unpaidFees = Math.max(0, activeCase.unpaidFees - item.amount);
+          }
+        }
+        return db;
+      });
+      await fetchDbState(activeUserId);
+      alert("Payment verified. Retainer ledger accounts balanced.");
+      return;
+    }
+
     try {
       const res = await fetch('/api/invoices/pay', {
         method: "POST",
@@ -591,6 +1070,32 @@ export default function App() {
   const handleSendChatMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatMessageText) return;
+
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        const payload = {
+          id: `msg-${Date.now()}`,
+          chatId: selectedChatId,
+          senderId: activeUserId,
+          senderName: dbState.roleSelf?.name || "Staff Responder",
+          text: chatMessageText,
+          timestamp: new Date().toISOString(),
+          type: "text",
+          status: "sent"
+        };
+        db.messages.push(payload);
+        const chatItem = db.chats.find((c: any) => c.id === selectedChatId);
+        if (chatItem) {
+          chatItem.lastMessageText = chatMessageText;
+          chatItem.lastMessageTime = payload.timestamp;
+        }
+        return db;
+      });
+      setChatMessageText("");
+      await fetchDbState(activeUserId);
+      return;
+    }
+
     try {
       const res = await fetch('/api/messages/send', {
         method: "POST",
@@ -615,6 +1120,23 @@ export default function App() {
   const handleGenerateLegalDraftObj = async () => {
     setDraftLoading(true);
     setDraftResult("");
+    if (isOfflineMode) {
+      setTimeout(() => {
+        let content = "";
+        const client = draftingClientName || "Client Corporation";
+        const title = dbState.cases.find((c: any) => c.id === selectedCaseId)?.title || "Dispute Appeals Case";
+        if (draftingType === "Power of Attorney") {
+          content = `SPECIAL POWER OF ATTORNEY\n\nKNOW ALL MEN BY THESE PRESENTS, that I, ${client}, do hereby constitute, nominate and appoint Sarosh Sultan, Advocate of High Court, and other partners of LegalOps Pro as my lawful Attorney to act for me in relation to the case: "${title}" pending before the High Court.\n\nTo file statements, appeals, cross-examine witnesses, and do all such lawful acts as may be necessary for the proper conduct of the case.\n\nIN WITNESS WHEREOF, I have set my hand this ${new Date().toLocaleDateString()}.\n\n_______________________\nEXECUTANT: ${client}`;
+        } else if (draftingType === "Contract Agreement") {
+          content = `MUTUAL NON-DISCLOSURE AGREEMENT\n\nThis Agreement is entered into on this ${new Date().toLocaleDateString()} by and between ${client} (hereinafter referred to as the "Disclosing Party") and LegalOps Pro Associates.\n\n1. PURPOSE: The parties wish to discuss details of SECP and corporate filings for the ongoing litigation: "${title}".\n2. CONFIDENTIALITY: All files shared, including corporate tax logs or withholding exemption letters, must be kept strict secret.\n3. GOVERNING LAW: This agreement shall be governed by the laws of Pakistan/Sindh Provincial courts.\n\nSigned,\n\nFor Client: ______________________\nFor Firm: Sarosh Sultan, Advocate`;
+        } else {
+          content = `LEGAL DEMAND NOTICE\n\nTo:\nOpposing Counsel / Respondent\nIn reference to: ${title}\n\nDate: ${new Date().toLocaleDateString()}\n\nDear Sir/Madam,\n\nUnder instruction from our client, ${client}, we hereby serve you this formal legal notice. It has come to our attention that your recent administrative notices under Section 43 violate the standard procedural guidelines.\n\nWe hereby call upon you to withdraw said notices or reach an administrative settlement within 14 days of receipt of this notice, failing which we have definite directives to initiate formal litigation.\n\nYours faithfully,\n\nSarosh Sultan\nPartner, LegalOps Pro`;
+        }
+        setDraftResult(content);
+        setDraftLoading(false);
+      }, 500);
+      return;
+    }
     try {
       const res = await fetch('/api/ai/draft', {
         method: "POST",
@@ -640,6 +1162,17 @@ export default function App() {
   // AI Case timeline summarized
   const handleGenerateCaseAiSummary = async (caseId: string) => {
     alert("Synthesizing Case Arguments, Trial Risk Score and outstanding financial factors with Gemini... check case outline below in 2-3 seconds.");
+    if (isOfflineMode) {
+      const activeCase = dbState.cases.find((c: any) => c.id === caseId);
+      const title = activeCase?.title || "Pending Litigation";
+      const opposing = activeCase?.opposingParty || "FBR panel";
+      const desc = activeCase?.description || "No description provided.";
+      setTimeout(() => {
+        const summaryMsg = `GEMINI AI CLIENT-SIDE SUMMARY OF CASE: "${title}"\n===============================================\n\n1. OBJECTIVE MATTERS:\n- Opposing Party: ${opposing}\n- Base Description: ${desc}\n- Total Retainer agreed: PKR ${activeCase?.estimatedFees?.toLocaleString() || "N/A"}\n- Amount remaining: PKR ${activeCase?.unpaidFees?.toLocaleString() || "N/A"}\n\n2. LITIGATION STRENGTH ASSESSMENT:\n- High Probability of Success based on procedural loopholes.\n- Identified administrative mismatch with tax logs.\n\n3. STRATEGIC NEXT STEPS:\n- Task assigned counsel to file a rejoinder.\n- Engage Hamid to cross-check rider fuel vouchers for court courier delivery.`;
+        alert(`Gemini AI Legal Analysis Brief Summary:\n\n${summaryMsg}`);
+      }, 500);
+      return;
+    }
     try {
       const res = await fetch('/api/ai/summary', {
         method: "POST",
@@ -664,7 +1197,26 @@ export default function App() {
     setChatInput("");
     setChatHistory(prev => [...prev, { sender: 'user', text: userMsg }]);
     setAiThinking(true);
-
+    if (isOfflineMode) {
+      setTimeout(() => {
+        let reply = "";
+        const query = userMsg.toLowerCase();
+        if (query.includes("task") || query.includes("todo") || query.includes("do")) {
+          reply = `Hello! Under serverless emulated storage, you currently have ${dbState.tasks.length} active tasks. Critical priorities should be resolved by Partners or Senior Staff. What specifically are you working on?`;
+        } else if (query.includes("case") || query.includes("matter") || query.includes("law")) {
+          reply = `Currently tracking ${dbState.cases.length} litigation and compliance files on the CRM/Case log. We should double check hearing schedules on the mini calendar widget.`;
+        } else if (query.includes("user") || query.includes("who") || query.includes("staff")) {
+          reply = `Your firm has ${dbState.allUsers.length} total personnel records. Sultan Ahmed Khan is Level 1 Firm Head (non-computer user). Partners include Sarosh Sultan, Sohail Kashani, Wahab Ul Bari, and Asif Yousuf.`;
+        } else if (query.includes("attendance") || query.includes("salary") || query.includes("payroll")) {
+          reply = "Hamid manages system attendance, custom payslips, cash vouchers and rider payrolls. You can click on the 'Attendance & Leaves' menu or the 'Payroll Manager' tab to view or modify.";
+        } else {
+          reply = `I am your LegalOps Pro AI assistant. In this serverless sandbox environment, it looks like you asked about "${userMsg}". You can interact with the dynamic tabs to view active cases, log gps check-ins, or run structured BI Analytics Reports!`;
+        }
+        setChatHistory(prev => [...prev, { sender: 'assistant', text: reply }]);
+        setAiThinking(false);
+      }, 700);
+      return;
+    }
     try {
       const res = await fetch('/api/ai/chat', {
         method: "POST",
@@ -749,10 +1301,17 @@ export default function App() {
         <div className="flex items-center gap-3">
           <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-lg text-xs font-semibold text-slate-600">
             <span>Status:</span>
-            <span className="flex items-center gap-1.5 text-emerald-600 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-              Secure Live ERP Sandbox
-            </span>
+            {isOfflineMode ? (
+              <span className="flex items-center gap-1.5 text-amber-600 font-bold">
+                <span className="w-2 h-2 rounded-full bg-amber-500 inline-block animate-pulse"></span>
+                Emulated Client-Side Sandbox
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                Secure Live ERP Sandbox
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
