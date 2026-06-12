@@ -284,6 +284,20 @@ export default function App() {
   const [testingWfId, setTestingWfId] = useState<string | null>(null);
 
   const handleSaveSocialPost = async (post: any) => {
+    if (isOfflineMode) {
+      const updatedSocial = [...(dbState?.socialPosts || [])];
+      const idx = updatedSocial.findIndex(p => p.id === post.id);
+      const savedPost = { ...post, id: post.id || `post-${Date.now()}` };
+      if (idx > -1) {
+        updatedSocial[idx] = savedPost;
+      } else {
+        updatedSocial.unshift(savedPost);
+      }
+      const nextState = { ...dbState, socialPosts: updatedSocial };
+      setDbState(nextState);
+      localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      return;
+    }
     try {
       const res = await fetch('/api/social-posts/create', {
         method: 'POST',
@@ -309,6 +323,13 @@ export default function App() {
   };
 
   const handleDeleteSocialPost = async (postId: string) => {
+    if (isOfflineMode) {
+      const updated = (dbState?.socialPosts || []).filter((p: any) => p.id !== postId);
+      const nextState = { ...dbState, socialPosts: updated };
+      setDbState(nextState);
+      localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      return;
+    }
     try {
       const res = await fetch('/api/social-posts/delete', {
         method: 'POST',
@@ -328,6 +349,28 @@ export default function App() {
 
   const handleGenerateAiPost = async () => {
     setSocialPromptLoading(true);
+    if (isOfflineMode) {
+      setTimeout(() => {
+        setNewPostData({
+          title: "AI Suggested Draft",
+          caption: `⚠️ Statutory Regulation Guide: Essential legal standards for ${socialTopicPrompt}. Mitigate organizational friction through automated legal pipelines.\n\n#Compliance #LegalOpsPro #BusinessPakistan`,
+          platforms: ["Facebook", "LinkedIn"],
+          status: "Draft",
+          scheduledTime: new Date(Date.now() + 86400000 * 3).toISOString().substring(0, 16),
+          image: "",
+          designConfig: {
+            theme: socialThemeMode || "Elegant Slate",
+            textColor: "#E2E8F0",
+            bgColor: "#1E293B",
+            heading: `${socialTopicPrompt.toUpperCase()} DIGEST`,
+            subheading: "Managing Regulatory Directives",
+            tagline: "LEGALOPS PRO OPERATIONS GROUP"
+          }
+        });
+        setSocialPromptLoading(false);
+      }, 500);
+      return;
+    }
     try {
       const res = await fetch('/api/ai/suggest-post', {
         method: 'POST',
@@ -370,6 +413,25 @@ export default function App() {
 
   const handleLinkWhatsApp = async (phoneToLink: string) => {
     setWaSessionLoading(true);
+    if (isOfflineMode) {
+      const mockAcct = {
+        id: `wa-${activeUserId}`,
+        userId: activeUserId,
+        userName: dbState?.users?.find((u: any) => u.id === activeUserId)?.name || "Operational Agent",
+        phone: phoneToLink,
+        status: "linked",
+        deviceInfo: "Meta Multi-Device Server Node / Verified Proxy",
+        linkedAt: new Date().toISOString()
+      };
+      const nextSec = [...(dbState?.whatsappAccounts || [])].filter(w => w.userId !== activeUserId);
+      nextSec.push(mockAcct);
+      const nextState = { ...dbState, whatsappAccounts: nextSec };
+      setDbState(nextState);
+      localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      setWaSessionLoading(false);
+      setIsWaSettingsOpen(false);
+      return;
+    }
     try {
       const res = await fetch('/api/whatsapp/link', {
         method: 'POST',
@@ -400,6 +462,18 @@ export default function App() {
   };
 
   const handleUnlinkWhatsApp = async (tgtUserId: string) => {
+    if (isOfflineMode) {
+      const updated = (dbState?.whatsappAccounts || []).map((w: any) => {
+        if (w.userId === tgtUserId) {
+          return { ...w, status: "unlinked", linkedAt: "" };
+        }
+        return w;
+      });
+      const nextState = { ...dbState, whatsappAccounts: updated };
+      setDbState(nextState);
+      localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      return;
+    }
     try {
       const res = await fetch('/api/whatsapp/unlink', {
         method: 'POST',
@@ -423,6 +497,21 @@ export default function App() {
   };
 
   const handleSaveWorkflow = async (wf: any) => {
+    if (isOfflineMode) {
+      const list = [...(dbState?.workflows || [])];
+      const idx = list.findIndex(w => w.id === wf.id);
+      const item = { ...wf, id: wf.id || `wf-${Date.now()}` };
+      if (idx > -1) {
+        list[idx] = item;
+      } else {
+        list.push(item);
+      }
+      const nextState = { ...dbState, workflows: list };
+      setDbState(nextState);
+      localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      setActiveWorkflowId(null);
+      return;
+    }
     try {
       const res = await fetch('/api/workflows/save', {
         method: 'POST',
@@ -449,6 +538,13 @@ export default function App() {
   };
 
   const handleDeleteWorkflow = async (id: string) => {
+    if (isOfflineMode) {
+      const updated = (dbState?.workflows || []).filter((w: any) => w.id !== id);
+      const nextState = { ...dbState, workflows: updated };
+      setDbState(nextState);
+      localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      return;
+    }
     try {
       const res = await fetch('/api/workflows/delete', {
         method: 'POST',
@@ -468,6 +564,24 @@ export default function App() {
 
   const handleTriggerWorkflowTest = async (id: string) => {
     setTestingWfId(id);
+    if (isOfflineMode) {
+      const wf = dbState?.workflows?.find((w: any) => w.id === id);
+      if (wf) {
+        const firedLog = {
+          id: `log-${Date.now()}`,
+          workflowId: id,
+          workflowName: wf.name,
+          time: new Date().toISOString(),
+          details: `Manual test initiated. Trigger [${wf.trigger}] successfully evaluated. Action completed: [${wf.action}] dispatched onto operational team member: ${wf.target}.`
+        };
+        const logs = [firedLog, ...(dbState?.workflowLogs || [])];
+        const nextState = { ...dbState, workflowLogs: logs };
+        setDbState(nextState);
+        localStorage.setItem("legalops_emulated_db", JSON.stringify(nextState));
+      }
+      setTimeout(() => setTestingWfId(null), 1000);
+      return;
+    }
     try {
       const res = await fetch('/api/workflows/test-trigger', {
         method: 'POST',
@@ -497,7 +611,15 @@ export default function App() {
   };
 
   // Fetch complete database state filtered by RBAC
-  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const hn = window.location.hostname;
+      if (hn.endsWith(".netlify.app") || hn.endsWith(".vercel.app") || hn.endsWith(".github.io") || hn.includes("netlify") || hn.includes("vercel")) {
+        return true;
+      }
+    }
+    return false;
+  });
 
   const mutateLocalDb = (updater: (db: any) => any) => {
     let localDbStr = localStorage.getItem("legalops_emulated_db");
@@ -512,6 +634,16 @@ export default function App() {
   const fetchDbState = async (userId: string) => {
     setLoading(true);
     try {
+      const isStaticDeployment = typeof window !== "undefined" && (() => {
+        const hn = window.location.hostname;
+        return hn.endsWith(".netlify.app") || hn.endsWith(".vercel.app") || hn.endsWith(".github.io") || hn.includes("netlify") || hn.includes("vercel");
+      })();
+
+      if (isOfflineMode || isStaticDeployment) {
+        setIsOfflineMode(true);
+        throw new Error("Static environment mode active.");
+      }
+
       const res = await fetch(`/api/db-state?userId=${userId}`);
       if (!res.ok) {
         throw new Error("HTTP state error: " + res.status);
