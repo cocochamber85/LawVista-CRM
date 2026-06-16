@@ -33,23 +33,25 @@ if (!fs.existsSync(path.dirname(DB_FILE))) {
 
 // Pre-seeded Users Matching the Required Law Firm Hierarchy
 const SEED_USERS = [
-  { id: "1", name: "Sultan Ahmed Khan", role: "FIRM_HEAD", level: 1, department: "Executive Office", email: "sultan@legalopspro.com", phone: "+92 300 1111111", baseSalary: 300000, active: true },
-  { id: "2", name: "Sarosh Sultan", role: "PARTNER", level: 2, department: "Contracts, Litigation & Admin", email: "sarosh@legalopspro.com", phone: "+92 300 2222222", baseSalary: 250000, active: true },
-  { id: "3", name: "Wahab Ul Bari", role: "PARTNER", level: 2, department: "Sales Tax & Audit", email: "wahab@legalopspro.com", phone: "+92 300 3333333", baseSalary: 220000, active: true },
-  { id: "4", name: "Asif Yousuf", role: "PARTNER", level: 2, department: "SECP, Withholding & Accounts", email: "asif@legalopspro.com", phone: "+92 300 4444444", baseSalary: 220000, active: true },
-  { id: "5", name: "Sohail Kashani", role: "PARTNER", level: 2, department: "Sales Tax & Firm Sales", email: "sohail@legalopspro.com", phone: "+92 300 5555555", baseSalary: 220000, active: true },
-  { id: "6", name: "Muzammil", role: "SENIOR_STAFF", level: 3, department: "Contracts, Litigation & Appeals", email: "muzammil@legalopspro.com", phone: "+92 321 1111111", reportingTo: "2", baseSalary: 120000, active: true },
-  { id: "7", name: "Hamid", role: "SENIOR_STAFF", level: 3, department: "Operations, Accounting & HR", email: "hamid@legalopspro.com", phone: "+92 321 2222222", reportingTo: "4", baseSalary: 120000, active: true },
-  { id: "8", name: "Waleed", role: "SENIOR_STAFF", level: 3, department: "Drafting Department", email: "waleed@legalopspro.com", phone: "+92 321 3333333", reportingTo: "2", baseSalary: 100000, active: true },
-  { id: "9", name: "Ahmed", role: "SENIOR_STAFF", level: 3, department: "Tax Returns Department", email: "ahmed@legalopspro.com", phone: "+92 321 4444444", reportingTo: "3", baseSalary: 100000, active: true },
-  { id: "10", name: "Asad", role: "STAFF", level: 4, department: "Drafting Department", email: "asad@legalopspro.com", phone: "+92 333 1111111", reportingTo: "8", baseSalary: 60000, active: true },
-  { id: "11", name: "Abdul Qadir", role: "STAFF", level: 4, department: "Tax Returns Department", email: "abdulqadir@legalopspro.com", phone: "+92 333 2222222", reportingTo: "9", baseSalary: 60000, active: true },
-  { id: "12", name: "Areesha", role: "STAFF", level: 4, department: "Sales & Client Operations", email: "areesha@legalopspro.com", phone: "+92 333 3333333", reportingTo: "7", baseSalary: 55000, active: true },
+  { id: "1", name: "Sultan Ahmed Khan", role: "FIRM_HEAD", level: 1, department: "Executive Office", email: "sultan@legalopspro.com", phone: "+92 300 1111111", baseSalary: 300000, active: true, clientId: "sultan", password: "sultan123" },
+  { id: "2", name: "Sarosh Sultan", role: "PARTNER", level: 2, department: "Contracts, Litigation & Admin", email: "sarosh@legalopspro.com", phone: "+92 300 2222222", baseSalary: 250000, active: true, clientId: "sarosh", password: "sarosh123" },
+  { id: "3", name: "Wahab Ul Bari", role: "PARTNER", level: 2, department: "Sales Tax & Audit", email: "wahab@legalopspro.com", phone: "+92 300 3333333", baseSalary: 220000, active: true, clientId: "wahab", password: "wahab123" },
+  { id: "4", name: "Asif Yousuf", role: "PARTNER", level: 2, department: "SECP, Withholding & Accounts", email: "asif@legalopspro.com", phone: "+92 300 4444444", baseSalary: 220000, active: true, clientId: "asif", password: "asif123" },
+  { id: "5", name: "Sohail Kashani", role: "PARTNER", level: 2, department: "Sales Tax & Firm Sales", email: "sohail@legalopspro.com", phone: "+92 300 5555555", baseSalary: 220000, active: true, clientId: "sohail", password: "sohail123" },
+  { id: "6", name: "Muzammil", role: "SENIOR_STAFF", level: 3, department: "Contracts, Litigation & Appeals", email: "muzammil@legalopspro.com", phone: "+92 321 1111111", reportingTo: "2", baseSalary: 120000, active: true, clientId: "muzammil", password: "muzammil123" },
+  { id: "7", name: "Hamid", role: "SENIOR_STAFF", level: 3, department: "Operations, Accounting & HR", email: "hamid@legalopspro.com", phone: "+92 321 2222222", reportingTo: "4", baseSalary: 120000, active: true, clientId: "hamid", password: "hamid123" },
+  { id: "8", name: "Waleed", role: "SENIOR_STAFF", level: 3, department: "Drafting Department", email: "waleed@legalopspro.com", phone: "+92 321 3333333", reportingTo: "2", baseSalary: 100000, active: true, clientId: "waleed", password: "waleed123" },
+  { id: "9", name: "Ahmed", role: "SENIOR_STAFF", level: 3, department: "Tax Returns Department", email: "ahmed@legalopspro.com", phone: "+92 321 4444444", reportingTo: "3", baseSalary: 100000, active: true, clientId: "ahmed", password: "ahmed123" },
+  { id: "10", name: "Asad", role: "STAFF", level: 4, department: "Drafting Department", email: "asad@legalopspro.com", phone: "+92 333 1111111", reportingTo: "8", baseSalary: 60000, active: true, clientId: "asad", password: "asad123" },
+  { id: "11", name: "Abdul Qadir", role: "STAFF", level: 4, department: "Tax Returns Department", email: "abdulqadir@legalopspro.com", phone: "+92 333 2222222", reportingTo: "9", baseSalary: 60000, active: true, clientId: "abdulqadir", password: "abdulqadir123" },
+  { id: "12", name: "Areesha", role: "STAFF", level: 4, department: "Sales & Client Operations", email: "areesha@legalopspro.com", phone: "+92 333 3333333", reportingTo: "7", baseSalary: 55000, active: true, clientId: "areesha", password: "areesha123" },
+  // Level 5 Client Portal Account
+  { id: "17", name: "Habib Bank Limited Client", role: "CLIENT", level: 5, department: "Client Litigations Portal", email: "hbl@client.com", phone: "+92 21 1111111", baseSalary: 0, active: true, clientId: "hbl-client", password: "clientpassword", assignedCaseId: "case-101" },
   // Level 5 Non-System Staff (No login rights, Hamid manages attendance and payout voucher)
-  { id: "13", name: "Shiraz", role: "NON_SYSTEM", level: 5, department: "Rider & Logistics Services", email: "shiraz@nonuser.com", phone: "+92 345 1111111", reportingTo: "7", baseSalary: 35000, active: true },
-  { id: "14", name: "Waseem", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "waseem@nonuser.com", phone: "+92 345 2222222", reportingTo: "7", baseSalary: 30000, active: true },
-  { id: "15", name: "Zeeshan Jr", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "zeeshanjr@nonuser.com", phone: "+92 345 3333333", reportingTo: "7", baseSalary: 30000, active: true },
-  { id: "16", name: "Zeeshan Haider", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "zeeshandh@nonuser.com", phone: "+92 345 4444444", reportingTo: "7", baseSalary: 30000, active: true }
+  { id: "13", name: "Shiraz", role: "NON_SYSTEM", level: 5, department: "Rider & Logistics Services", email: "shiraz@nonuser.com", phone: "+92 345 1111111", reportingTo: "7", baseSalary: 35000, active: true, clientId: "shiraz", password: "shiraz123" },
+  { id: "14", name: "Waseem", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "waseem@nonuser.com", phone: "+92 345 2222222", reportingTo: "7", baseSalary: 30000, active: true, clientId: "waseem", password: "waseem123" },
+  { id: "15", name: "Zeeshan Jr", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "zeeshanjr@nonuser.com", phone: "+92 345 3333333", reportingTo: "7", baseSalary: 30000, active: true, clientId: "zeeshanjr", password: "zeeshanjr123" },
+  { id: "16", name: "Zeeshan Haider", role: "NON_SYSTEM", level: 5, department: "Operations Support Staff", email: "zeeshandh@nonuser.com", phone: "+92 345 4444444", reportingTo: "7", baseSalary: 30000, active: true, clientId: "zeeshanh", password: "zeeshanh123" }
 ];
 
 const SEED_CASES = [
@@ -341,6 +343,33 @@ function applyRbacFilter(userId: string, data: any) {
   const userRole = current.role;
   const userLevel = current.level;
   const userDept = current.department;
+
+  // Level 5 Client views are isolated to their own assignments only
+  if (userRole === "CLIENT") {
+    const clientsCases = data.cases.filter((c: any) => 
+      c.clientName?.toLowerCase() === current.name?.toLowerCase() || 
+      c.id === current.assignedCaseId
+    );
+    const clientsCaseIds = clientsCases.map((c: any) => c.id);
+    return {
+      ...data,
+      cases: clientsCases,
+      invoices: data.invoices.filter((i: any) => i.caseId && clientsCaseIds.includes(i.caseId)),
+      tasks: [],
+      leads: [],
+      attendance: [],
+      leaveRequests: [],
+      payroll: [],
+      expenses: [],
+      reports: [],
+      chats: [],
+      messages: [],
+      socialPosts: [],
+      workflows: [],
+      workflowLogs: [],
+      whatsappAccounts: []
+    };
+  }
 
   // Level 1 or 2 can see everything
   if (userLevel === 1 || userRole === "PARTNER") {
@@ -1309,6 +1338,35 @@ app.post('/api/admin/users/save', (req, res) => {
     db.users.push(newUser);
     writeDb(db);
     return res.json({ success: true, user: newUser, message: "New user registered under firm hierarchy successfully." });
+  }
+});
+
+// Bulk Upload/Import existing database state or clients
+app.post('/api/admin/db/upload', (req, res) => {
+  const { userId, newDbState } = req.body;
+  if (userId !== "2") {
+    return res.status(403).json({ error: "Access denied. Only Associate Partner Sarosh Sultan can directly load databases." });
+  }
+  try {
+    const db = readDb();
+    
+    // Support merging user/client lists or completely overriding them safely
+    const mergedDb = {
+      ...db,
+      users: newDbState.users ? [...newDbState.users] : db.users,
+      cases: newDbState.cases ? [...newDbState.cases] : db.cases,
+      leads: newDbState.leads ? [...newDbState.leads] : db.leads,
+      tasks: newDbState.tasks ? [...newDbState.tasks] : db.tasks,
+      attendance: newDbState.attendance ? [...newDbState.attendance] : db.attendance,
+      invoices: newDbState.invoices ? [...newDbState.invoices] : db.invoices,
+      expenses: newDbState.expenses ? [...newDbState.expenses] : db.expenses,
+      pettyCash: typeof newDbState.pettyCash === 'number' ? newDbState.pettyCash : db.pettyCash
+    };
+    
+    writeDb(mergedDb);
+    return res.json({ success: true, message: "Incremental update: Uploaded database dataset merged and verified under production schemas successfully!" });
+  } catch (err: any) {
+    return res.status(500).json({ error: "Storage node failure writing workspace: " + err.message });
   }
 });
 

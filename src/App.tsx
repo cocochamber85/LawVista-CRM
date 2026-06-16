@@ -28,7 +28,9 @@ import {
   Eye,
   CheckCircle2,
   Paperclip,
-  Share2
+  Share2,
+  Database,
+  Upload
 } from 'lucide-react';
 
 interface User {
@@ -192,8 +194,17 @@ export default function App() {
   const [leadHistorySearch, setLeadHistorySearch] = useState<string>("");
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [userForm, setUserForm] = useState<any>({
-    name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000
+    name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000, clientId: "", password: ""
   });
+
+  // Client ID and Password User login credentials validation parameters
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true); // Logged in by default for preview, can be toggled or signed out for strict validation
+  const [authLockMode, setAuthLockMode] = useState<boolean>(false);       // Strict mode requiring passwords to alter roles
+  const [loginUsername, setLoginUsername] = useState<string>("");
+  const [loginPassword, setLoginPassword] = useState<string>("");
+  const [loginError, setLoginError] = useState<string>("");
+  const [isCsvImporting, setIsCsvImporting] = useState<boolean>(false);
+  const [dragActive, setDragActive] = useState<boolean>(false);
 
   // Form input field configurations
   const [newTask, setNewTask] = useState<Partial<Task>>({
@@ -789,7 +800,25 @@ export default function App() {
       // Emulate RBAC filtering client-side
       const current = localDb.users.find((u: any) => u.id === userId);
       const filtered = { ...localDb };
-      if (current && current.level > 2 && current.role !== "PARTNER") {
+      if (current && current.role === "CLIENT") {
+        const clientsCases = (localDb.cases || []).filter((c: any) => 
+          c.clientName?.toLowerCase() === current.name?.toLowerCase() || 
+          c.id === current.assignedCaseId
+        );
+        const clientsCaseIds = clientsCases.map((c: any) => c.id);
+        filtered.cases = clientsCases;
+        filtered.invoices = (localDb.invoices || []).filter((i: any) => i.caseId && clientsCaseIds.includes(i.caseId));
+        filtered.tasks = [];
+        filtered.leads = [];
+        filtered.payroll = [];
+        filtered.expenses = [];
+        filtered.attendance = [];
+        filtered.leaveRequests = [];
+        filtered.chats = [];
+        filtered.messages = [];
+        filtered.reports = [];
+        filtered.pettyCash = 0;
+      } else if (current && current.level > 2 && current.role !== "PARTNER") {
         const userLevel = current.level;
         const userDept = current.department;
         filtered.tasks = localDb.tasks.filter((t: any) => {
@@ -822,13 +851,13 @@ export default function App() {
         tasks: filtered.tasks || [],
         chats: filtered.chats || [],
         messages: filtered.messages || [],
-        attendance: localDb.attendance || [],
-        leaveRequests: localDb.leaveRequests || [],
-        payroll: localDb.payroll || [],
-        invoices: localDb.invoices || [],
-        expenses: localDb.expenses || [],
-        reports: localDb.reports || [],
-        pettyCash: localDb.pettyCash || 0
+        attendance: filtered.attendance || localDb.attendance || [],
+        leaveRequests: filtered.leaveRequests || localDb.leaveRequests || [],
+        payroll: filtered.payroll || localDb.payroll || [],
+        invoices: filtered.invoices || localDb.invoices || [],
+        expenses: filtered.expenses || localDb.expenses || [],
+        reports: filtered.reports || localDb.reports || [],
+        pettyCash: filtered.pettyCash !== undefined ? filtered.pettyCash : (localDb.pettyCash || 0)
       });
     } finally {
       setLoading(false);
@@ -868,12 +897,21 @@ export default function App() {
     }
   }, []);
 
+  const [pendingSwitchUserId, setPendingSwitchUserId] = useState<string | null>(null);
+
   const handleRoleChange = (userId: string) => {
-    setActiveUserId(userId);
-    setMobileMenuOpen(false);
-    // Reset selections appropriate for that role
-    if (userId === "10") {
-      // Asad can only see single elements
+    if (authLockMode) {
+      const selectedUser = (dbState?.allUsers || []).find((u: any) => u.id === userId);
+      if (selectedUser) {
+        setLoginUsername(selectedUser.clientId || selectedUser.email || "");
+        setLoginPassword("");
+        setLoginError("");
+        setPendingSwitchUserId(userId);
+        setIsAuthenticated(false);
+      }
+    } else {
+      setActiveUserId(userId);
+      setMobileMenuOpen(false);
     }
   };
 
@@ -1820,7 +1858,7 @@ export default function App() {
       });
       alert(editingUserId ? "User updated successfully." : "New user created successfully.");
       setEditingUserId(null);
-      setUserForm({ name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000 });
+      setUserForm({ name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000, clientId: "", password: "" });
       await fetchDbState(activeUserId);
       return;
     }
@@ -1834,7 +1872,7 @@ export default function App() {
         const data = await res.json();
         alert(data.message);
         setEditingUserId(null);
-        setUserForm({ name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000 });
+        setUserForm({ name: "", role: "STAFF", level: 4, department: "Drafting Department", email: "", phone: "", baseSalary: 55000, clientId: "", password: "" });
         await fetchDbState(activeUserId);
       } else {
         const data = await res.json();
@@ -1842,6 +1880,181 @@ export default function App() {
       }
     } catch (err: any) {
       alert("Error: " + err.message);
+    }
+  };
+
+  const [importedPreviewUsers, setImportedPreviewUsers] = useState<any[] | null>(null);
+
+  const handleCsvParseAndUpload = (text: string) => {
+    try {
+      const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+      if (lines.length < 2) {
+        alert("Spreadsheet must contain a header row and at least one data row.");
+        return null;
+      }
+      // Parse header columns
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      
+      const parsedUsers: any[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim());
+        if (cols.length === 0 || cols.every(col => col === "")) continue;
+        const rowObj: any = {};
+        headers.forEach((h, idx) => {
+          if (idx < cols.length) {
+            rowObj[h] = cols[idx];
+          }
+        });
+        
+        const uId = rowObj.id || `uploaded-${Date.now()}-${i}`;
+        const uName = rowObj.name || rowObj['full name'] || rowObj.employee || `Personnel No ${i}`;
+        const uRole = (rowObj.role || rowObj['access role'] || "STAFF").toUpperCase();
+        const uEmail = rowObj.email || rowObj['email address'] || `imported-${i}@legalops.pro`;
+        const uPhone = rowObj.phone || rowObj['phone number'] || "+92 300 1234567";
+        const uSalary = Number(rowObj.salary || rowObj.baseSalary || rowObj['base salary'] || 60000);
+        const uClientId = rowObj.clientid || rowObj.username || rowObj.loginid || uName.split(' ')[0].toLowerCase().replace(/\s+/g, '');
+        const uPassword = rowObj.password || rowObj.pass || "importedpass123";
+        const uDept = rowObj.department || rowObj.dept || (uRole === "CLIENT" ? "Client Litigations Portal" : "Drafting Department");
+        const uAssKey = rowObj.assignedcaseid || rowObj.caseid || "";
+        
+        parsedUsers.push({
+          id: uId,
+          name: uName,
+          role: uRole,
+          level: uRole === "PARTNER" ? 2 : uRole === "SENIOR_STAFF" ? 3 : uRole === "CLIENT" ? 5 : 4,
+          department: uDept,
+          email: uEmail,
+          phone: uPhone,
+          baseSalary: uSalary,
+          clientId: uClientId,
+          password: uPassword,
+          assignedCaseId: uAssKey,
+          active: true
+        });
+      }
+      return parsedUsers;
+    } catch (err: any) {
+      alert("Error parsing CSV spreadsheet columns: " + err.message);
+      return null;
+    }
+  };
+
+  const readAndProcessDatabaseFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+      
+      if (file.name.endsWith('.json')) {
+        try {
+          const parsed = JSON.parse(text);
+          if (!parsed.users && !parsed.cases) {
+            alert("Invalid JSON schema. Backup files must contain at least a 'users' array node.");
+            return;
+          }
+          if (isOfflineMode) {
+            mutateLocalDb((db) => {
+              return { ...db, ...parsed };
+            });
+            alert("Offline Database backup state loaded and merged into local storage successfully!");
+            await fetchDbState(activeUserId);
+          } else {
+            const res = await fetch("/api/admin/db/upload", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: activeUserId, newDbState: parsed })
+            });
+            if (res.ok) {
+              const resData = await res.json();
+              alert(resData.message);
+              await fetchDbState(activeUserId);
+            } else {
+              const resData = await res.json();
+              alert("Server upload error: " + resData.error);
+            }
+          }
+        } catch (err: any) {
+          alert("Failed to parse system JSON: " + err.message);
+        }
+      } else if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+        const users = handleCsvParseAndUpload(text);
+        if (users && users.length > 0) {
+          setImportedPreviewUsers(users);
+        }
+      } else {
+        alert("Unsupported file format. Please upload files ending in .csv, .txt, or .json");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDatabaseFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    readAndProcessDatabaseFile(file);
+  };
+
+  const handleCommitImportedUsers = async () => {
+    if (!importedPreviewUsers || importedPreviewUsers.length === 0) return;
+    
+    if (isOfflineMode) {
+      mutateLocalDb((db) => {
+        const existingEmails = new Set(db.users.map((u: any) => u.email?.toLowerCase()));
+        importedPreviewUsers.forEach(u => {
+          if (!existingEmails.has(u.email?.toLowerCase())) {
+            db.users.push(u);
+          } else {
+            const idx = db.users.findIndex((ex: any) => ex.email?.toLowerCase() === u.email?.toLowerCase());
+            if (idx > -1) db.users[idx] = { ...db.users[idx], ...u };
+          }
+        });
+        return db;
+      });
+      alert(`Import complete! Loaded ${importedPreviewUsers.length} user/client credentials rows into local emulated DB!`);
+      setImportedPreviewUsers(null);
+      await fetchDbState(activeUserId);
+    } else {
+      try {
+        const res = await fetch("/api/admin/db/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: activeUserId, newDbState: { users: importedPreviewUsers } })
+        });
+        if (res.ok) {
+          const resData = await res.json();
+          alert(resData.message);
+          setImportedPreviewUsers(null);
+          await fetchDbState(activeUserId);
+        } else {
+          const resData = await res.json();
+          alert("Error uploading parsed team data: " + resData.error);
+        }
+      } catch (err: any) {
+        alert("Server error merging spreadsheet: " + err.message);
+      }
+    }
+  };
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginUsername) {
+      setLoginError("Please enter a valid Client ID or administrative email.");
+      return;
+    }
+    const matched = (dbState?.allUsers || []).find((u: any) => 
+      (u.clientId?.toLowerCase() === loginUsername.trim().toLowerCase() || u.email?.toLowerCase() === loginUsername.trim().toLowerCase()) && 
+      u.password === loginPassword
+    );
+    if (matched) {
+      setActiveUserId(matched.id);
+      setIsAuthenticated(true);
+      setLoginError("");
+      setLoginUsername("");
+      setLoginPassword("");
+      setPendingSwitchUserId(null);
+      fetchDbState(matched.id);
+    } else {
+      setLoginError("Verification failed. Incorrect Username or Password Code.");
     }
   };
 
@@ -1857,6 +2070,104 @@ export default function App() {
   // Define active role tags
   const activeRoleTag = dbState.roleSelf;
   const isSultanHead = activeRoleTag?.id === "1"; // Level 1 Head (non-computer user)
+
+  if (!isAuthenticated) {
+    const defaultSelectId = pendingSwitchUserId || "2";
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative font-sans text-slate-100">
+        {/* Decorative background grid and light leak */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,#312e81,transparent_50%)] opacity-30 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 pointer-events-none"></div>
+
+        <div className="w-full max-w-md bg-slate-950/80 backdrop-blur-xl p-8 rounded-3xl border border-slate-800 shadow-2xl relative z-10 space-y-6">
+          <div className="text-center space-y-1">
+            <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-indigo-600 text-white shadow-lg mb-2">
+              <Database size={24} />
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-white font-sans">LegalOps Pro</h1>
+            <p className="text-xs text-slate-400 font-medium">Secure Database Authentication Portal</p>
+          </div>
+
+          {/* Quick Demo Impersonator Dropdown */}
+          <div className="bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-extrabold text-indigo-400 tracking-wider flex items-center gap-1 uppercase">
+                <span>🔑 Sandbox Role Credentials Helper</span>
+              </span>
+              <span className="text-[9px] text-slate-500 font-medium font-mono">Select any Loaded Account</span>
+            </div>
+            <select
+              value={defaultSelectId}
+              onChange={(e) => {
+                const targetUId = e.target.value;
+                const found = (dbState?.allUsers || []).find((u: any) => u.id === targetUId);
+                if (found) {
+                  setLoginUsername(found.clientId || found.email || "");
+                  setLoginPassword(found.password || "");
+                  setPendingSwitchUserId(targetUId);
+                }
+              }}
+              className="w-full text-xs font-semibold bg-slate-950 text-slate-200 border border-slate-800 px-3 py-2 rounded-xl focus:outline-none cursor-pointer hover:bg-slate-900"
+            >
+              <option value="">-- Pre-populate Credentials --</option>
+              {(dbState?.allUsers || []).map((u: any) => (
+                <option key={u.id} value={u.id}>
+                  Level {u.level}: {u.name} ({u.role === "CLIENT" ? "Client Portal" : u.department || u.role})
+                </option>
+              ))}
+            </select>
+            <p className="text-[9.5px] text-slate-500 leading-snug font-medium">Selecting a role instantly loads its system username and security credentials for immediate authentication evaluation.</p>
+          </div>
+
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            {loginError && (
+              <div className="text-xs font-bold text-rose-400 bg-rose-950/50 p-3 rounded-xl border border-rose-900/50 text-center">
+                ⚠️ {loginError}
+              </div>
+            )}
+
+            <div className="space-y-1 text-left">
+              <label className="text-[10px] font-bold text-slate-400 uppercase block pl-1">Client ID / Login Username</label>
+              <input
+                type="text"
+                required
+                value={loginUsername}
+                onChange={(e) => setLoginUsername(e.target.value)}
+                placeholder="e.g. hbl-client or sarosh"
+                className="w-full text-xs border border-slate-800 bg-slate-900/50 p-3 rounded-xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 font-semibold"
+              />
+            </div>
+
+            <div className="space-y-1 text-left">
+              <div className="flex justify-between items-center pl-1 pr-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase block">Access Code Password</label>
+                <span className="text-[9px] text-slate-500 font-medium">Check database settings</span>
+              </div>
+              <input
+                type="password"
+                required
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full text-xs border border-slate-800 bg-slate-900/50 p-3 rounded-xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-950/50 cursor-pointer transition-all flex items-center justify-center gap-1 text-center"
+            >
+              <span>🔑 Authorize & Lock Session</span>
+            </button>
+          </form>
+
+          <div className="text-center pt-2">
+            <span className="text-[9px] text-slate-600 font-mono font-medium">Enterprise Core • isolated tenant encryption verified</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="root-container" className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden text-slate-800 font-sans">
@@ -1901,25 +2212,45 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span id="role-select-label" className="text-xs font-bold text-slate-400 uppercase hidden sm:inline">Active User Role:</span>
+            <span id="role-select-label" className="text-[10px] font-extrabold text-slate-400 uppercase hidden sm:inline">Active Role:</span>
+            
+            {/* Dynamic Dropdown from DB State */}
             <select
               id="role-switch"
               value={activeUserId}
               onChange={(e) => handleRoleChange(e.target.value)}
-              className="text-xs font-bold bg-indigo-50 text-indigo-700 border-2 border-indigo-200 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-indigo-100/80 focus:outline-none transition-all"
+              className="text-[11px] font-bold bg-indigo-50 text-indigo-700 border-2 border-indigo-200 px-2.5 py-1.5 rounded-xl cursor-pointer hover:bg-indigo-100/80 focus:outline-none transition-all"
             >
-              <option value="1">Level 1: Sultan Ahmed Khan (Firm Head / Non-computer)</option>
-              <option value="2">Level 2: Sarosh Sultan (Partner Admin / Contracts, Appeals)</option>
-              <option value="3">Level 2: Wahab Ul Bari (Partner / Tax & Audit)</option>
-              <option value="4">Level 2: Asif Yousuf (Partner / SECP & Accounts)</option>
-              <option value="5">Level 2: Sohail Kashani (Partner / Sales)</option>
-              <option value="7">Level 3: Hamid (Senior Staff / Operations, Banking, HR)</option>
-              <option value="8">Level 3: Waleed (Senior Staff / Drafting Overseer)</option>
-              <option value="9">Level 3: Ahmed (Senior Staff / Tax Overseer)</option>
-              <option value="10">Level 4: Asad (Drafting Staff / Reports to Waleed)</option>
-              <option value="11">Level 4: Abdul Qadir (Tax Staff / Reports to Ahmed)</option>
-              <option value="12">Level 4: Areesha (Routine Tasks & WhatsApp Inquiry Lead)</option>
+              {(dbState.allUsers || []).map((u: any) => (
+                <option key={u.id} value={u.id}>
+                  Lv {u.level}: {u.name} {u.role === "CLIENT" ? "🔑 (Client Portal)" : `(${u.role})`}
+                </option>
+              ))}
             </select>
+
+            {/* Auth Lock toggler */}
+            <label className="flex items-center gap-1 text-[10px] bg-slate-100 border border-slate-200 px-2 py-1.5 rounded-xl cursor-pointer hover:bg-slate-200/60 transition-colors" title="Enable password validation to change active practitioners">
+              <input
+                type="checkbox"
+                checked={authLockMode}
+                onChange={(e) => setAuthLockMode(e.target.checked)}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer text-xs"
+              />
+              <span className="font-bold text-slate-500 uppercase tracking-tight hidden lg:inline">Strict Auth Lock</span>
+            </label>
+
+            {/* Sign Out Trigger */}
+            <button
+              onClick={() => {
+                setIsAuthenticated(false);
+                setLoginUsername("");
+                setLoginPassword("");
+              }}
+              className="p-1.5 px-2.5 bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100/80 rounded-xl text-[11px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+              title="Secure Logout to main console"
+            >
+              <span>Secure Sign Out</span>
+            </button>
           </div>
 
           <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
@@ -3363,7 +3694,10 @@ export default function App() {
                                           department: u.department,
                                           email: u.email,
                                           phone: u.phone,
-                                          baseSalary: u.baseSalary
+                                          baseSalary: u.baseSalary,
+                                          clientId: u.clientId || "",
+                                          password: u.password || "",
+                                          assignedCaseId: u.assignedCaseId || ""
                                         });
                                       }}
                                       className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 px-2 py-1 rounded hover:bg-indigo-50 cursor-pointer"
@@ -3397,8 +3731,8 @@ export default function App() {
                               className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-700 font-semibold"
                             />
                           </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-slate-400 block uppercase">Assigned Security Role</label>
+                          <div className="space-y-1 block md:col-span-2">
+                            <label className="text-[9px] font-bold text-slate-400 block uppercase">Assigned Security Role & Hierarchy Tier</label>
                             <select
                               value={userForm.role}
                               onChange={(e) => {
@@ -3406,13 +3740,17 @@ export default function App() {
                                 let level = 4;
                                 if (role === "PARTNER") level = 2;
                                 if (role === "SENIOR_STAFF") level = 3;
+                                if (role === "CLIENT") level = 5;
+                                if (role === "NON_SYSTEM") level = 5;
                                 setUserForm({ ...userForm, role, level });
                               }}
                               className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-750 font-semibold"
                             >
                               <option value="PARTNER">Level 2: PARTNER (Full Admin Access)</option>
                               <option value="SENIOR_STAFF">Level 3: SENIOR_STAFF (Supervision scope)</option>
-                              <option value="STAFF">Level 4: STAFF (Designated scope)</option>
+                              <option value="STAFF">Level 4: STAFF (Designated workspace assignment)</option>
+                              <option value="CLIENT">Level 5: CLIENT (Client Portal Account - Strictly isolated case & invoices view)</option>
+                              <option value="NON_SYSTEM">Level 5: NON_SYSTEM (Riders & Operational Staff - Managed entirely by Hamid)</option>
                             </select>
                           </div>
                           <div className="space-y-1">
@@ -3464,6 +3802,51 @@ export default function App() {
                               placeholder="120000"
                               className="w-full text-xs border border-slate-200 p-2 rounded bg-white text-slate-700"
                             />
+                          </div>
+                        </div>
+
+                        {/* Credentials & Client Assignment Grid */}
+                        <div className="bg-slate-100 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                          <h4 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                            <span>🔑 Authentication Credentials & Target Assignment</span>
+                            <span className="text-[9px] font-medium text-slate-400 lowercase">(required for logins)</span>
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-500 block uppercase">Login Username / Client ID</label>
+                              <input
+                                type="text"
+                                required
+                                value={userForm.clientId || ""}
+                                onChange={(e) => setUserForm({ ...userForm, clientId: e.target.value })}
+                                placeholder="e.g. hbl-client or sarosh"
+                                className="w-full text-xs border border-slate-200 p-2.5 rounded bg-white text-slate-800 font-bold"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-500 block uppercase">Access Password</label>
+                              <input
+                                type="text"
+                                required
+                                value={userForm.password || ""}
+                                onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                                placeholder="Type secret password"
+                                className="w-full text-xs border border-slate-200 p-2.5 rounded bg-white text-slate-800"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-500 block uppercase">Assigned Litigation Case (Optional for Client)</label>
+                              <select
+                                value={userForm.assignedCaseId || ""}
+                                onChange={(e) => setUserForm({ ...userForm, assignedCaseId: e.target.value })}
+                                className="w-full text-xs border border-slate-200 p-2.5 rounded bg-white text-slate-850 font-semibold"
+                              >
+                                <option value="">-- No specific mapping (full access) --</option>
+                                {(dbState.cases || []).map((c: any) => (
+                                  <option key={c.id} value={c.id}>{c.title} ({c.id})</option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         </div>
 
@@ -3553,13 +3936,129 @@ export default function App() {
                         <h4 className="text-[11px] font-bold text-indigo-800 flex items-center gap-1">
                           <BarChart3 size={13} className="text-indigo-600" /> Purge Analytics Cache
                         </h4>
-                        <p className="text-[10px] text-slate-500 leading-relaxed font-sans">Invalidate cached aggregate metrics reporting tables. This forces immediate evaluation of live production records only.</p>
+                        <p className="text-[10px] text-slate-500 leading-relaxed font-sans font-sans">Invalidate cached aggregate metrics reporting tables. This forces immediate evaluation of live production records only.</p>
                         <button
                           onClick={handleAdminRefreshReports}
                           className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-sm transition-all text-center focus:outline-none cursor-pointer"
                         >
                           Refresh BI Analytic Nodes
                         </button>
+                      </div>
+
+                      {/* Operation 5: Spreadsheet Loader & JSON backup override */}
+                      <div className="space-y-4 p-5 bg-indigo-50/70 rounded-2xl border-2 border-dashed border-indigo-200">
+                        <div>
+                          <h4 className="text-[12px] font-extrabold text-indigo-900 flex items-center gap-1.5 uppercase font-sans tracking-wide">
+                            <Database size={14} className="text-indigo-600" /> Excel/CSV & JSON Database Uploader
+                          </h4>
+                          <p className="text-[10px] text-slate-500 leading-relaxed mt-1">Upload an existing JSON state backup to overwrite, or load a CSV/Txt spreadsheet file of team members, clients, and credentials.</p>
+                        </div>
+
+                        {/* Drag and Drop Zone and File input picker */}
+                        <div 
+                          className={`border-2 border-dashed rounded-xl p-4 text-center transition-all ${
+                            dragActive ? 'border-indigo-500 bg-indigo-100/50' : 'border-slate-300 bg-white hover:bg-slate-50'
+                          }`}
+                          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                          onDragLeave={() => setDragActive(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setDragActive(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) readAndProcessDatabaseFile(file);
+                          }}
+                        >
+                          <label className="cursor-pointer block space-y-2">
+                            <Upload size={24} className="mx-auto text-indigo-500 animate-bounce" />
+                            <div className="text-xs font-semibold text-slate-700">Drag & Drop spreadsheet or click to select</div>
+                            <div className="text-[9px] text-slate-400">Supports .csv, .txt, or JSON database exports</div>
+                            <input
+                              type="file"
+                              accept=".csv,.txt,.json"
+                              onChange={handleDatabaseFileUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+
+                        {/* Spreadsheet parsed visual check table */}
+                        {importedPreviewUsers && importedPreviewUsers.length > 0 && (
+                          <div className="space-y-3 bg-white p-3.5 rounded-xl border border-indigo-100 shadow-sm text-left">
+                            <div className="flex justify-between items-center border-b border-indigo-50 pb-2">
+                              <span className="text-xs font-bold text-indigo-900 flex items-center gap-1">
+                                <UserCheck size={13} /> Review Loaded Spreadsheet rows
+                              </span>
+                              <span className="text-[10px] bg-indigo-100 text-indigo-700 font-extrabold px-2 py-0.5 rounded-full">{importedPreviewUsers.length} ready</span>
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto overflow-x-auto text-[10px]">
+                              <table className="w-full text-left">
+                                <thead>
+                                  <tr className="border-b text-[8px] uppercase tracking-wider text-slate-400 font-extrabold">
+                                    <th className="pb-1.5">Practitioner Name</th>
+                                    <th className="pb-1.5">Security Role</th>
+                                    <th className="pb-1.5">Target Username</th>
+                                    <th className="pb-1.5">Secret Password</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {importedPreviewUsers.map((u, index) => (
+                                    <tr key={index} className="text-slate-700 hover:bg-slate-50">
+                                      <td className="py-1.5 pr-2 font-bold">{u.name}</td>
+                                      <td className="py-1.5 pr-2">
+                                        <span className="bg-slate-100 text-slate-700 text-[8px] px-1.5 font-bold rounded-md">{u.role}</span>
+                                      </td>
+                                      <td className="py-1.5 pr-2 font-mono text-indigo-600 font-bold">{u.clientId}</td>
+                                      <td className="py-1.5 pr-2 font-mono text-slate-500">{u.password}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            <div className="flex gap-2 justify-end pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setImportedPreviewUsers(null)}
+                                className="px-3 py-1.5 border border-slate-200 text-slate-500 text-[10px] font-bold rounded hover:bg-slate-50 cursor-pointer"
+                              >
+                                Revoke Clear
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCommitImportedUsers}
+                                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded shadow cursor-pointer transition-all"
+                              >
+                                Commit & Give Access
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Download sample format utility */}
+                        <div className="bg-slate-100/50 p-2.5 rounded-lg border border-slate-200/50 flex items-center justify-between text-left">
+                          <span className="text-[9px] text-slate-500 font-medium">Need sample format? Click to download the excel template.</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const header = "ClientId,Password,Name,Role,Email,Phone,Salary,Department,AssignedCaseId\n";
+                              const row1 = "hbl-chief,hbl123,Habib Bank Head,CLIENT,hbl@client.com,+92211111111,0,Client Litigations Portal,case-101\n";
+                              const row2 = "nadir-advo,nadir123,Nadir Ali Shah,STAFF,nadir@legalopspro.com,+923009999999,65000,Drafting Department,\n";
+                              const text = header + row1 + row2;
+                              const blob = new Blob([text], { type: 'text/csv' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = "legalops_import_template.csv";
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                            }}
+                            className="text-[9px] text-indigo-600 hover:underline font-extrabold cursor-pointer flex-shrink-0 ml-1"
+                          >
+                            Get Sample Template
+                          </button>
+                        </div>
                       </div>
 
                     </div>
